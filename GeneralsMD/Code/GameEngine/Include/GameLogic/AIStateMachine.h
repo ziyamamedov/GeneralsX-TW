@@ -176,6 +176,9 @@ protected:
 	virtual void loadPostProcess() override;
 
 private:
+	// GeneralsX @refactor Codex 02/10/2026 Define optional movement states in FormationAI.cpp.
+	void defineFormationStates();
+
 	std::vector<Coord3D>	m_goalPath;					///< defines a simple path to follow
 	const Waypoint *			m_goalWaypoint;
 	Squad *								m_goalSquad;
@@ -371,15 +374,6 @@ public:
 	virtual StateReturnType update() override;
 };
 EMPTY_DTOR(AIMoveToState)
-
-// GeneralsX @feature Codex 26/09/2026 Reuse normal movement and save data for move-then-face orders.
-class AIFormationMoveState : public AIMoveToState
-{
-	MEMORY_POOL_GLUE_WITH_USERLOOKUP_CREATE(AIFormationMoveState, "AIFormationMoveState")
-public:
-	AIFormationMoveState(StateMachine *machine) : AIMoveToState(machine) { m_isMoveTo = false; }
-};
-EMPTY_DTOR(AIFormationMoveState)
 
 //-----------------------------------------------------------------------------------------------------------
 /**
@@ -1336,13 +1330,3 @@ protected:
 	Bool m_canTurnInPlace;
 };
 EMPTY_DTOR(AIFaceState)
-
-// GeneralsX @feature Codex 26/09/2026 Use the normal turn rate without aiming at a drifting fixed point.
-class AIFormationFaceState : public AIFaceState
-{
-	MEMORY_POOL_GLUE_WITH_USERLOOKUP_CREATE(AIFormationFaceState, "AIFormationFaceState")
-public:
-	AIFormationFaceState(StateMachine *machine) : AIFaceState(machine, false) { }
-	virtual StateReturnType update() override;
-};
-EMPTY_DTOR(AIFormationFaceState)

@@ -476,15 +476,8 @@ public:
 		aiDoCommand(&parms);
 	}
 
-	// GeneralsX @feature Codex 26/09/2026 Store both waypoints so deferred commands retain final facing.
-	void aiMoveToPositionAndFace(const Coord3D *pos, const Coord3D *facingPoint, CommandSourceType cmdSource)
-	{
-		AICommandParms parms(AICMD_MOVE_TO_POSITION_AND_FACE, cmdSource);
-		parms.m_pos = *pos;
-		parms.m_coords.push_back(*pos);
-		parms.m_coords.push_back(*facingPoint);
-		aiDoCommand(&parms);
-	}
+	// GeneralsX @feature Codex 02/10/2026 Implemented in FormationAI.cpp.
+	void aiMoveToPositionAndFace(const Coord3D *pos, const Coord3D *facingPoint, CommandSourceType cmdSource);
 
 	void aiMoveToPositionEvenIfSleeping( const Coord3D *pos, CommandSourceType cmdSource )
 	{

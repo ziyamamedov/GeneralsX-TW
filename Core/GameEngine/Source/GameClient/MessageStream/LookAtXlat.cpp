@@ -27,6 +27,9 @@
 // Author: Michael S. Booth, April 2001
 
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
+#if RTS_ZEROHOUR
+#include "GameClient/TotalWarControls.h"
+#endif
 
 #include "Common/FramePacer.h"
 #include "Common/GameType.h"
@@ -264,8 +267,8 @@ GameMessageDisposition LookAtTranslator::translateGameMessage(const GameMessage 
 			m_currentPos = msg->getArgument( 0 )->pixel;
 
 #if RTS_ZEROHOUR
-			// GeneralsX @feature Codex 26/09/2026 Reserve alternate-mode RMB dragging for unit orders.
-			if (TheGlobalData->m_useAlternateMouse)
+			// GeneralsX @feature Codex 02/10/2026 Reserve RMB dragging only while Total War controls are enabled.
+			if (TotalWarControls::isEnabled())
 				break;
 #endif
 			const Bool userWantsRMBScroll = !TheGlobalData->m_useAlternateMouse || TheGlobalData->m_useRightMouseScrollWithAlternateMouse;

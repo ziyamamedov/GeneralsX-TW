@@ -1,6 +1,7 @@
 #include "PreRTS.h"
 
 #include "GameClient/FormationTranslator.h"
+#include "GameClient/TotalWarControls.h"
 #include "GameClient/FormationLayout.h"
 #include "Common/GameEngine.h"
 #include "Common/GlobalData.h"
@@ -47,6 +48,7 @@ FormationTranslator::FormationTranslator()
 {
 	TheFormationTranslator = this;
 	reset();
+	TotalWarControls::loadPreferences();
 }
 
 FormationTranslator::~FormationTranslator()
@@ -75,7 +77,7 @@ void FormationTranslator::cancel()
 
 Bool FormationTranslator::canStart() const
 {
-	return TheGlobalData->m_useAlternateMouse && TheTacticalView && TheInGameUI
+	return TotalWarControls::isEnabled() && TheGlobalData->m_useAlternateMouse && TheTacticalView && TheInGameUI
 		&& TheInGameUI->getInputEnabled() && TheInGameUI->areSelectedObjectsControllable()
 		&& !TheInGameUI->getGUICommand() && !TheInGameUI->getPendingPlaceType()
 		&& !TheInGameUI->isSelecting() && !TheInGameUI->isInWaypointMode()
@@ -200,6 +202,12 @@ void FormationTranslator::finish(const ICoord2D &screen)
 
 GameMessageDisposition FormationTranslator::translateGameMessage(const GameMessage *msg)
 {
+	// GeneralsX @feature Codex 02/10/2026 Classic input passes through without consuming any events.
+	if (!TotalWarControls::isEnabled())
+	{
+		reset();
+		return KEEP_MESSAGE;
+	}
 	const GameMessage::Type type = msg->getType();
 	if (type == GameMessage::MSG_CLEAR_GAME_DATA)
 		reset();

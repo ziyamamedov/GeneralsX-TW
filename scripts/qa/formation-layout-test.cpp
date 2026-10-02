@@ -1,8 +1,15 @@
 // GeneralsX @feature Codex 26/09/2026 Geometry regressions for the actual Zero Hour preview helpers.
 // Run from the repository root:
 // c++ -std=c++20 -ffp-contract=off -I Core/Libraries/Include -I Dependencies/Utility \
-//   -I GeneralsMD/Code/GameEngine/Include scripts/qa/formation-layout-test.cpp \
+//   -I Core/Libraries/Include/Precompiled -I GeneralsMD/Code/GameEngine/Include scripts/qa/formation-layout-test.cpp \
 //   -o /tmp/formation-layout-test && /tmp/formation-layout-test
+// GeneralsX @build Codex 02/10/2026 Supply the basic definitions normally provided by the engine's PCH.
+#include <cstdint>
+#include <algorithm>
+#include "Precompiled/BaseTypes.h"
+#include "Precompiled/BaseMacros.h"
+using std::min;
+using std::max;
 #include "GameClient/FormationLayout.h"
 #include <cassert>
 #include <cmath>

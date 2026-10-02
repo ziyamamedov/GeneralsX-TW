@@ -52,6 +52,9 @@
 
 #include "GameLogic/AIPathfind.h"
 #include "GameLogic/GameLogic.h"
+#if RTS_ZEROHOUR
+#include "GameLogic/FormationAI.h"
+#endif
 #include "GameLogic/Locomotor.h"
 #include "GameLogic/Object.h"
 #include "GameLogic/ObjectCreationList.h"
@@ -546,24 +549,10 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 			break;
 		}
 #if RTS_ZEROHOUR
-		// GeneralsX @feature Codex 26/09/2026 Apply formation orders through the synchronized command stream.
+		// GeneralsX @feature Codex 02/10/2026 Keep optional formation orders behind one dispatcher hook.
 		case GameMessage::MSG_DO_FORMATION_MOVE:
-		{
-			if (msg->getArgumentCount() != 3
-				|| msg->getArgumentDataType(0) != ARGUMENTDATATYPE_OBJECTID
-				|| msg->getArgumentDataType(1) != ARGUMENTDATATYPE_LOCATION
-				|| msg->getArgumentDataType(2) != ARGUMENTDATATYPE_LOCATION)
-				break;
-			Object *obj = findObjectByID(msg->getArgument(0)->objectID);
-			if (!obj || obj->getControllingPlayer() != getMessagePlayer(msg)
-				|| obj->isEffectivelyDead() || obj->isContained() || !obj->isMobile()
-				|| obj->isKindOf(KINDOF_AIRCRAFT) || !obj->getAIUpdateInterface())
-				break;
-			obj->releaseWeaponLock(LOCKED_TEMPORARILY);
-			obj->getAIUpdateInterface()->aiMoveToPositionAndFace(
-				&msg->getArgument(1)->location, &msg->getArgument(2)->location, CMD_FROM_PLAYER);
+			executeFormationOrder(msg);
 			break;
-		}
 #endif
 		case GameMessage::MSG_ADD_WAYPOINT:
 		{

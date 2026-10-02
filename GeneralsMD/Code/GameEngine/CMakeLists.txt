@@ -691,6 +691,7 @@ set(GAMEENGINE_SRC
 #    Source/GameClient/FXList.cpp
     # GeneralsX @feature Codex 26/09/2026 Zero Hour-only formation controls.
     Source/GameClient/FormationTranslator.cpp
+    Source/GameClient/TotalWarControls.cpp
     Source/GameClient/GameClient.cpp
 #    Source/GameClient/GameClientDispatch.cpp
 #    Source/GameClient/GameText.cpp
@@ -834,6 +835,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/AI/AIPlayer.cpp
     Source/GameLogic/AI/AISkirmishPlayer.cpp
     Source/GameLogic/AI/AIStates.cpp
+    Source/GameLogic/AI/FormationAI.cpp
     Source/GameLogic/AI/AITNGuard.cpp
     Source/GameLogic/AI/Squad.cpp
     Source/GameLogic/AI/TurretAI.cpp

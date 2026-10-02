@@ -683,9 +683,8 @@ AIStateMachine::AIStateMachine( Object *obj, AsciiString name ) : StateMachine( 
 
 	// order matters: first state is the default state.
 	defineState( AI_IDLE,																	newInstance(AIIdleState)( this, AIIdleState::LOOK_FOR_TARGETS), AI_IDLE, AI_IDLE );
-	// GeneralsX @feature Codex 26/09/2026 Face only after successful arrival; failure returns to idle.
-	defineState(AI_FORMATION_MOVE, newInstance(AIFormationMoveState)(this), AI_FORMATION_FACE, AI_IDLE);
-	defineState(AI_FORMATION_FACE, newInstance(AIFormationFaceState)(this), AI_IDLE, AI_IDLE);
+	// GeneralsX @refactor Codex 02/10/2026 Keep formation behavior in its own implementation.
+	defineFormationStates();
 	defineState( AI_MOVE_TO,															newInstance(AIMoveToState)( this ), AI_IDLE, AI_IDLE );
 	defineState( AI_MOVE_OUT_OF_THE_WAY,									newInstance(AIMoveOutOfTheWayState)( this ), AI_IDLE, AI_IDLE );
 	defineState( AI_MOVE_AND_TIGHTEN,											newInstance(AIMoveAndTightenState)( this ), AI_IDLE, AI_IDLE );
@@ -2029,21 +2028,6 @@ AIAttackMoveStateMachine::~AIAttackMoveStateMachine()
 // note - has no crc/xfer as has no member vars. jba.
 
 //-------------------------------------------------------------------------------------------------
-// GeneralsX @feature Codex 26/09/2026 Keep a constant heading while the locomotor finishes braking.
-StateReturnType AIFormationFaceState::update()
-{
-	AIStateMachine *machine = static_cast<AIStateMachine *>(getMachine());
-	if (machine->getGoalPathSize() != 2)
-		return STATE_FAILURE;
-	const Coord3D *destination = machine->getGoalPathPosition(0);
-	const Coord3D *facingPoint = machine->getGoalPathPosition(1);
-	Coord3D target = *getMachineOwner()->getPosition();
-	target.x += facingPoint->x - destination->x;
-	target.y += facingPoint->y - destination->y;
-	machine->setGoalPosition(&target);
-	return AIFaceState::update();
-}
-
 AIMoveToState::AIMoveToState(StateMachine *machine) : m_isMoveTo(true), AIInternalMoveToState( machine, "AIMoveToState" )
 {
 	// m_isMoveTo is a boolean that specifies that this thing is ACTUALLY A MOVE TO.

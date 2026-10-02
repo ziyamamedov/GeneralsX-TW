@@ -238,6 +238,9 @@ class AIUpdateInterface : public UpdateModule, public AICommandInterface
 
 protected:
 
+	// GeneralsX @refactor Codex 02/10/2026 Optional move-then-face command, implemented in FormationAI.cpp.
+	void privateMoveToPositionAndFace(const AICommandParms *parms);
+
 	// yes, protected, NOT public.
 	virtual void privateMoveToPosition( const Coord3D *pos, CommandSourceType cmdSource );			///< move to given position(s) tightening the formation.
 	virtual void privateMoveToObject( Object *obj, CommandSourceType cmdSource );			///< move to given object

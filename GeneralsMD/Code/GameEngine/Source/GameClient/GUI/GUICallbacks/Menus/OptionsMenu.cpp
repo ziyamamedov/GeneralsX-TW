@@ -73,6 +73,7 @@
 #include "GameLogic/ScriptEngine.h"
 #include "WWDownload/Registry.h"
 #include "GameClient/MessageBox.h"
+#include "GameClient/TotalWarControls.h"
 
 #include "WW3D2/ww3d.h"
 #include "WW3D2/texturefilter.h"
@@ -261,6 +262,7 @@ static void setDefaults()
 	//-------------------------------------------------------------------------------------------------
 	// Mouse Mode
 	GadgetCheckBoxSetChecked(checkAlternateMouse, FALSE);
+	TotalWarControls::resetOptions();
 	GadgetCheckBoxSetChecked(checkRetaliation, TRUE );
 	GadgetCheckBoxSetChecked( checkDoubleClickAttackMove, FALSE );
 
@@ -569,6 +571,8 @@ static void saveOptions()
 	// mouse mode
 	TheWritableGlobalData->m_useAlternateMouse = GadgetCheckBoxIsChecked(checkAlternateMouse);
 	(*pref)["UseAlternateMouse"] = TheWritableGlobalData->m_useAlternateMouse ? "yes" : "no";
+	// GeneralsX @feature Codex 02/10/2026 Apply optional controls only when the options are accepted.
+	TotalWarControls::saveOptions(*pref);
 
 	// TheSuperHackers @todo Add check box ?
 	{
@@ -1366,6 +1370,8 @@ void OptionsMenuInit( WindowLayout *layout, void *userData )
 	GadgetCheckBoxSetChecked(checkAlternateMouse, TheGlobalData->m_useAlternateMouse);
 	GadgetCheckBoxSetChecked(checkRetaliation, TheGlobalData->m_clientRetaliationModeEnabled);
 	GadgetCheckBoxSetChecked( checkDoubleClickAttackMove, TheGlobalData->m_doubleClickAttackMove );
+	// GeneralsX @feature Codex 02/10/2026 Add the control scheme without replacing the retail window asset.
+	TotalWarControls::initOptions(*pref);
 
 	// set scroll speed slider
 	// TheSuperHackers @tweak xezon 11/07/2025 No longer sets the slider position if the user setting
@@ -1578,6 +1584,7 @@ WindowMsgHandledType OptionsMenuSystem( GameWindow *window, UnsignedInt msg,
 			{
 				if(ignoreSelected)
 					break;
+				TotalWarControls::updateOptions();
 				GameWindow *control = (GameWindow *)mData1;
 				Int controlID = control->winGetWindowId();
 
