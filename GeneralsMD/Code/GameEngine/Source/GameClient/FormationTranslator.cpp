@@ -151,7 +151,8 @@ void FormationTranslator::updatePreview(const ICoord2D &screen)
 	const Real wx = end.x - m_anchor.x;
 	const Real wy = end.y - m_anchor.y;
 	const Real distance = WWMath::Sqrt(wx * wx + wy * wy);
-	if (dx * dx + dy * dy >= 64 && distance > 0.1f)
+	// GeneralsX @bugfix Codex 02/10/2026 Keep following the drag direction when narrowing an existing formation.
+	if ((m_dragged || dx * dx + dy * dy >= 64) && distance > 0.1f)
 	{
 		m_dragged = true;
 		m_direction = FormationLayout::facing(m_anchor, end, distance, m_slots.size() == 1, m_direction);
@@ -161,7 +162,7 @@ void FormationTranslator::updatePreview(const ICoord2D &screen)
 	for (Int i = 0; i < count; ++i)
 	{
 		Coord3D &pos = m_slots[i].position;
-		pos = FormationLayout::slot(m_anchor, end, m_direction, distance, m_spacing, i, count, m_dragged);
+		pos = FormationLayout::slot(m_anchor, m_direction, m_dragged ? distance : 0.0f, m_spacing, i, count);
 		pos.z = TheTerrainLogic->getGroundHeight(pos.x, pos.y);
 	}
 }
@@ -270,6 +271,7 @@ void FormationTranslator::draw(View *view)
 	const UnsignedInt color = m_validPosition ? 0xD060FF80 : 0xD0FFB040;
 	const Real sideX = m_direction.y;
 	const Real sideY = -m_direction.x;
+	// GeneralsX @tweak Codex 02/10/2026 Show only individual destination/facing markers, without a connecting line.
 	for (std::vector<Slot>::const_iterator it = m_slots.begin(); it != m_slots.end(); ++it)
 	{
 		Coord3D tip = it->position, left = it->position, right = it->position;
@@ -283,6 +285,4 @@ void FormationTranslator::draw(View *view)
 		drawGroundLine(view, left, right, color, 2.0f);
 		drawGroundLine(view, right, tip, color, 2.0f);
 	}
-	if (m_slots.size() > 1)
-		drawGroundLine(view, m_slots.front().position, m_slots.back().position, color, 1.0f);
 }

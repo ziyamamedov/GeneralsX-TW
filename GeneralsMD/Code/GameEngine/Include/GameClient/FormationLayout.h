@@ -16,24 +16,26 @@ namespace FormationLayout
 		return result;
 	}
 
-	inline Coord3D slot(const Coord3D &start, const Coord3D &end, const Coord3D &direction,
-		Real distance, Real minimumSpacing, Int index, Int count, Bool dragged)
+	// GeneralsX @feature Codex 02/10/2026 Anchor the front rank at mouse-down and wrap overflow behind it.
+	inline Coord3D slot(const Coord3D &start, const Coord3D &direction,
+		Real width, Real minimumSpacing, Int index, Int count)
 	{
 		Coord3D result = start;
 		if (count <= 1)
 			return result;
-		Real spacing = minimumSpacing;
-		if (dragged)
+
+		Int columns = 1;
+		if (minimumSpacing > 0.0f && width >= minimumSpacing)
 		{
-			const Real requestedSpacing = distance / (count - 1);
-			if (requestedSpacing > spacing)
-				spacing = requestedSpacing;
-			result.x = (start.x + end.x) * 0.5f;
-			result.y = (start.y + end.y) * 0.5f;
+			// Bound the quotient before converting to an integer, including very long drags.
+			columns = width >= minimumSpacing * (count - 1)
+				? count : 1 + (Int)(width / minimumSpacing);
 		}
-		const Real offset = (index - (count - 1) * 0.5f) * spacing;
-		result.x += direction.y * offset;
-		result.y -= direction.x * offset;
+		const Real columnSpacing = columns > 1 ? width / (columns - 1) : minimumSpacing;
+		const Real along = (index % columns) * columnSpacing;
+		const Real behind = (index / columns) * minimumSpacing;
+		result.x += direction.y * along - direction.x * behind;
+		result.y -= direction.x * along + direction.y * behind;
 		return result;
 	}
 }

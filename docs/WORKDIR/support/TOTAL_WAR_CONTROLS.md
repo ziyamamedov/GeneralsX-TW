@@ -10,6 +10,14 @@ The existing `UseAlternateMouse` preference is retained for Classic; its checkbo
 disabled while Total War is selected. Switching back restores that preference and the
 original camera-scroll policy. Selecting a mode does not require restarting the game.
 
+For multiple ground units, mouse-down anchors the first position in the front rank.
+Dragging sets that rank's width and direction; units face perpendicular to the drag.
+Units that do not fit wrap into ranks behind it, aligned to the same starting edge.
+Widening the drag moves units from rear ranks into the front rank; narrowing reverses it.
+Spacing in both directions respects the largest selected unit's footprint plus a gap.
+Only the individual triangle markers are drawn. A single unit still stays at the clicked
+destination while dragging selects its final facing. An ordinary click keeps normal movement.
+
 ## Feature implementation
 
 - `GeneralsMD/Code/GameEngine/Source/GameClient/TotalWarControls.cpp`: preference loading,
@@ -42,4 +50,4 @@ Run the standalone geometry test using the command in `scripts/qa/formation-layo
 Build `z_generals`, play an original replay and a replay containing formation commands,
 and check the dropdown's default, Accept, Cancel, Defaults and restart persistence.
 For interaction checks, compare ordinary right-click/drag behavior in Classic with the
-single-unit facing and group line previews in Total War, then switch back during a match.
+single-unit facing and group rank previews in Total War, then switch back during a match.
