@@ -689,6 +689,8 @@ set(GAMEENGINE_SRC
 #    Source/GameClient/DrawGroupInfo.cpp
     Source/GameClient/Eva.cpp
 #    Source/GameClient/FXList.cpp
+    # GeneralsX @feature Codex 26/09/2026 Zero Hour-only formation controls.
+    Source/GameClient/FormationTranslator.cpp
     Source/GameClient/GameClient.cpp
 #    Source/GameClient/GameClientDispatch.cpp
 #    Source/GameClient/GameText.cpp

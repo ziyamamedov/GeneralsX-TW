@@ -103,6 +103,9 @@ enum AIStateType CPP_11(: Int)
 	AI_BUSY,																	///< This is a state that things will be in when they are busy doing random stuff that doesn't require AI interaction.
 	AI_EXIT_INSTANTLY,												///< exit this obj, without waiting -- do it in the onEnter! This frame!
 	AI_GUARD_RETALIATE,												///< attacks attacker but with restrictions (hybrid of attack and guard).
+	// GeneralsX @feature Codex 26/09/2026 Append the state to keep existing AI state IDs stable.
+	AI_FORMATION_MOVE, ///< Move to a slot, then turn to the requested heading.
+	AI_FORMATION_FACE,
 };
 
 //-----------------------------------------------------------------------------------------------------------
@@ -368,6 +371,15 @@ public:
 	virtual StateReturnType update() override;
 };
 EMPTY_DTOR(AIMoveToState)
+
+// GeneralsX @feature Codex 26/09/2026 Reuse normal movement and save data for move-then-face orders.
+class AIFormationMoveState : public AIMoveToState
+{
+	MEMORY_POOL_GLUE_WITH_USERLOOKUP_CREATE(AIFormationMoveState, "AIFormationMoveState")
+public:
+	AIFormationMoveState(StateMachine *machine) : AIMoveToState(machine) { m_isMoveTo = false; }
+};
+EMPTY_DTOR(AIFormationMoveState)
 
 //-----------------------------------------------------------------------------------------------------------
 /**
@@ -1324,3 +1336,13 @@ protected:
 	Bool m_canTurnInPlace;
 };
 EMPTY_DTOR(AIFaceState)
+
+// GeneralsX @feature Codex 26/09/2026 Use the normal turn rate without aiming at a drifting fixed point.
+class AIFormationFaceState : public AIFaceState
+{
+	MEMORY_POOL_GLUE_WITH_USERLOOKUP_CREATE(AIFormationFaceState, "AIFormationFaceState")
+public:
+	AIFormationFaceState(StateMachine *machine) : AIFaceState(machine, false) { }
+	virtual StateReturnType update() override;
+};
+EMPTY_DTOR(AIFormationFaceState)

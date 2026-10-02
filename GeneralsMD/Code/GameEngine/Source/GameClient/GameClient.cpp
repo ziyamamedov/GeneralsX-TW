@@ -62,6 +62,8 @@
 #include "GameClient/GlobalLanguage.h"
 #include "GameClient/GraphDraw.h"
 #include "GameClient/GUICommandTranslator.h"
+// GeneralsX @feature Codex 26/09/2026 Zero Hour formation input and preview.
+#include "GameClient/FormationTranslator.h"
 #include "GameClient/HeaderTemplate.h"
 #include "GameClient/HintSpy.h"
 #include "GameClient/HotKey.h"
@@ -296,6 +298,10 @@ void GameClient::init()
 		// are loading here.  See MAX_CLIENT_TRANSLATORS
 		//
 
+		// GeneralsX @feature Codex 26/09/2026 Intercept ground gestures after GUI routing and before click generation.
+		m_translators[m_numTranslators++] = TheMessageStream->attachTranslator(
+			MSGNEW("GameClientSubsystem") FormationTranslator, 15);
+
 		// since we only allocate one of each, don't bother pooling 'em
 		m_translators[ m_numTranslators++ ] =	TheMessageStream->attachTranslator( MSGNEW("GameClientSubsystem") WindowTranslator,     10 );
 		m_translators[ m_numTranslators++ ] =	TheMessageStream->attachTranslator( MSGNEW("GameClientSubsystem") MetaEventTranslator,	20 );
@@ -463,6 +469,9 @@ void GameClient::init()
 /** Reset the game client for a new game */
 void GameClient::reset()
 {
+	// GeneralsX @feature Codex 26/09/2026 Never carry a pending gesture across maps or saves.
+	if (TheFormationTranslator)
+		TheFormationTranslator->reset();
 	Drawable *draw, *nextDraw;
 //	m_drawableHash.clear();
 //	m_drawableHash.resize(DRAWABLE_HASH_SIZE);

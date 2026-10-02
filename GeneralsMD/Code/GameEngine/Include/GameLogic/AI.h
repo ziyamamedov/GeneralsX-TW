@@ -409,6 +409,8 @@ enum AICommandType CPP_11(: Int)	// Stored in save file, do not reorder/renumber
 	AICMD_EVACUATE_INSTANTLY,
 	AICMD_EXIT_INSTANTLY,
 	AICMD_GUARD_RETALIATE,
+	// GeneralsX @feature Codex 26/09/2026 Append commands to preserve existing save IDs.
+	AICMD_MOVE_TO_POSITION_AND_FACE,
 };
 
 struct AICommandParms
@@ -471,6 +473,16 @@ public:
 	{
 		AICommandParms parms(AICMD_MOVE_TO_POSITION, cmdSource);
 		parms.m_pos = *pos;
+		aiDoCommand(&parms);
+	}
+
+	// GeneralsX @feature Codex 26/09/2026 Store both waypoints so deferred commands retain final facing.
+	void aiMoveToPositionAndFace(const Coord3D *pos, const Coord3D *facingPoint, CommandSourceType cmdSource)
+	{
+		AICommandParms parms(AICMD_MOVE_TO_POSITION_AND_FACE, cmdSource);
+		parms.m_pos = *pos;
+		parms.m_coords.push_back(*pos);
+		parms.m_coords.push_back(*facingPoint);
 		aiDoCommand(&parms);
 	}
 

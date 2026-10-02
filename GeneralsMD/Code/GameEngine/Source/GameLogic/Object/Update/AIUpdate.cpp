@@ -2655,6 +2655,24 @@ void AIUpdateInterface::aiDoCommand(const AICommandParms* parms)
 
 	switch (parms->m_cmd)
 	{
+		// GeneralsX @feature Codex 26/09/2026 Run formation movement through normal permission/deferred-command handling.
+		case AICMD_MOVE_TO_POSITION_AND_FACE:
+		{
+			if (!getObject()->isMobile() || parms->m_coords.size() != 2)
+				break;
+			getObject()->setFormationID(NO_FORMATION_ID);
+			TheAI->pathfinder()->removeGoal(getObject());
+			getStateMachine()->clear();
+			setGoalPositionClipped(&parms->m_pos, parms->m_cmdSource);
+			std::vector<Coord3D> path = parms->m_coords;
+			getStateMachine()->setGoalPath(&path);
+			m_blockedFrames = 0;
+			m_isBlocked = FALSE;
+			m_isBlockedAndStuck = FALSE;
+			setLastCommandSource(parms->m_cmdSource);
+			getStateMachine()->setState(AI_FORMATION_MOVE);
+			break;
+		}
 		case AICMD_MOVE_TO_POSITION:
 		case AICMD_MOVE_TO_POSITION_EVEN_IF_SLEEPING:
 			privateMoveToPosition(&parms->m_pos, parms->m_cmdSource);

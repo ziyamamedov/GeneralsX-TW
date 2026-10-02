@@ -36,6 +36,8 @@
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Object.h"
 #include "GameClient/Drawable.h"
+// GeneralsX @feature Codex 26/09/2026 Project formation markers onto the terrain.
+#include "GameClient/FormationTranslator.h"
 #include "GameClient/GadgetListBox.h"
 #include "GameClient/GameClient.h"
 #include "GameClient/GameWindowManager.h"
@@ -413,6 +415,10 @@ void W3DInGameUI::draw()
 
 			// draw placement angle selection if needed
 			drawPlaceAngle( view );
+
+			// GeneralsX @feature Codex 26/09/2026 Show slots before the player releases the order.
+			if (TheFormationTranslator)
+				TheFormationTranslator->draw(view);
 
 		}
 

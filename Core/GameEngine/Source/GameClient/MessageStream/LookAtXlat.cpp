@@ -263,6 +263,11 @@ GameMessageDisposition LookAtTranslator::translateGameMessage(const GameMessage 
 			m_anchor = msg->getArgument( 0 )->pixel;
 			m_currentPos = msg->getArgument( 0 )->pixel;
 
+#if RTS_ZEROHOUR
+			// GeneralsX @feature Codex 26/09/2026 Reserve alternate-mode RMB dragging for unit orders.
+			if (TheGlobalData->m_useAlternateMouse)
+				break;
+#endif
 			const Bool userWantsRMBScroll = !TheGlobalData->m_useAlternateMouse || TheGlobalData->m_useRightMouseScrollWithAlternateMouse;
 
 			if (userWantsRMBScroll && !TheInGameUI->isSelecting() && !m_isScrolling)

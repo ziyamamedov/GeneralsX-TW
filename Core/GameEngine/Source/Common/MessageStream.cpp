@@ -647,6 +647,10 @@ const char *GameMessage::getCommandTypeAsString(GameMessage::Type t)
 	CASE_LABEL(MSG_LOGIC_CRC)
 	CASE_LABEL(MSG_SET_MINE_CLEARING_DETAIL)
 	CASE_LABEL(MSG_ENABLE_RETALIATION_MODE)
+#if RTS_ZEROHOUR
+	// GeneralsX @feature Codex 26/09/2026 Name the Zero Hour formation command in diagnostics.
+	CASE_LABEL(MSG_DO_FORMATION_MOVE)
+#endif
 	CASE_LABEL(MSG_BEGIN_DEBUG_NETWORK_MESSAGES)
 
 #if defined(RTS_DEBUG) || defined(_ALLOW_DEBUG_CHEATS_IN_RELEASE)

@@ -605,6 +605,11 @@ public:
 		MSG_SET_MINE_CLEARING_DETAIL,								///< CRC from the logic passed around in a network game :)
 		MSG_ENABLE_RETALIATION_MODE,								///< Turn retaliation mode on or off.
 
+#if RTS_ZEROHOUR
+		// GeneralsX @feature Codex 26/09/2026 Synchronized move and final facing for an individual formation slot.
+		MSG_DO_FORMATION_MOVE, // object ID, destination, facing point
+#endif
+
 		MSG_BEGIN_DEBUG_NETWORK_MESSAGES = 1900,		///< network messages that exist only in debug/internal builds. all grouped separately.
 
 #if defined(RTS_DEBUG) || defined(_ALLOW_DEBUG_CHEATS_IN_RELEASE)

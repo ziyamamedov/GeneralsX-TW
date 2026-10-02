@@ -545,6 +545,26 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 			onDoMoveto(msg, currentlySelectedGroup);
 			break;
 		}
+#if RTS_ZEROHOUR
+		// GeneralsX @feature Codex 26/09/2026 Apply formation orders through the synchronized command stream.
+		case GameMessage::MSG_DO_FORMATION_MOVE:
+		{
+			if (msg->getArgumentCount() != 3
+				|| msg->getArgumentDataType(0) != ARGUMENTDATATYPE_OBJECTID
+				|| msg->getArgumentDataType(1) != ARGUMENTDATATYPE_LOCATION
+				|| msg->getArgumentDataType(2) != ARGUMENTDATATYPE_LOCATION)
+				break;
+			Object *obj = findObjectByID(msg->getArgument(0)->objectID);
+			if (!obj || obj->getControllingPlayer() != getMessagePlayer(msg)
+				|| obj->isEffectivelyDead() || obj->isContained() || !obj->isMobile()
+				|| obj->isKindOf(KINDOF_AIRCRAFT) || !obj->getAIUpdateInterface())
+				break;
+			obj->releaseWeaponLock(LOCKED_TEMPORARILY);
+			obj->getAIUpdateInterface()->aiMoveToPositionAndFace(
+				&msg->getArgument(1)->location, &msg->getArgument(2)->location, CMD_FROM_PLAYER);
+			break;
+		}
+#endif
 		case GameMessage::MSG_ADD_WAYPOINT:
 		{
 			onAddWaypoint(msg, currentlySelectedGroup);

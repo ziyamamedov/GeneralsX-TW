@@ -429,6 +429,9 @@ static PoolSizeRec PoolSizes[] =
 	{ "AIDockMoveToExitState", 256, 32 },
 	{ "AIDockMoveToRallyState", 256, 32 },
 	{ "AIMoveToState", 600, 32 },
+	// GeneralsX @feature Codex 26/09/2026 Register the Zero Hour move-then-face AI state pool.
+	{ "AIFormationMoveState", 600, 32 },
+	{ "AIFormationFaceState", 600, 32 },
 	{ "AIMoveOutOfTheWayState", 600, 32 },
 	{ "AIMoveAndTightenState", 600, 32 },
 	{ "AIMoveAwayFromRepulsorsState", 600, 32 },
