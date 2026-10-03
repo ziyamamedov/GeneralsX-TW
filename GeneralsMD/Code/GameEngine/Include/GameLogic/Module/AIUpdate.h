@@ -660,6 +660,8 @@ public:
 
 	Object* getGoalObject() { return getStateMachine()->getGoalObject(); }	///< return the id of the current state of the machine
 	const Coord3D* getGoalPosition() const { return getStateMachine()->getGoalPosition(); }	///< return the id of the current state of the machine
+	// GeneralsX @feature Codex 04/10/2026 Read-only destination/facing for the local Total War Alt overlay.
+	void getFormationMarker(Coord3D &position, Coord3D &direction) const;
 
 	WhichTurretType friend_getTurretSync() const { return m_turretSyncFlag; }
 	void friend_setTurretSync(WhichTurretType t) { m_turretSyncFlag = t; }

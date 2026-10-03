@@ -60,6 +60,7 @@ Utilities for large-scale code refactoring and fixes:
 
 - `formation-layout-test.cpp` - Standalone Zero Hour formation geometry and Alt-drag modifier transition regression test; build/run command in the file header
 - `total-war-camera-input-test.cpp` - Standalone Total War camera key ownership and cancellation regression test; build/run command in the file header
+- `total-war-modifiers-test.cpp` - Standalone Total War order/selection modifiers, force-attack ownership and replacement-key collision regression test; build/run command in the file header
 
 #### `qa/smoke/` - Smoke Tests
 - `docker-smoke-test-zh.sh` - Quick startup validation (expects crash, checks init output)

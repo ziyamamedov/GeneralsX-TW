@@ -58,6 +58,9 @@
 #include "GameClient/Keyboard.h"
 #include "GameClient/GameText.h"
 #include "Common/AudioEventRTS.h"
+#if defined(RTS_ZEROHOUR)
+#include "GameClient/TotalWarInput.h"
+#endif
 //-----------------------------------------------------------------------------
 // DEFINES ////////////////////////////////////////////////////////////////////
 //-----------------------------------------------------------------------------
@@ -103,6 +106,10 @@ GameMessageDisposition HotKeyTranslator::translateGameMessage(const GameMessage 
 		uKey.concat(key);
 		AsciiString aKey;
 		aKey.translate(uKey);
+		// GeneralsX @feature Codex 04/10/2026 Keep former J actions on a free letter in the current panel.
+#if defined(RTS_ZEROHOUR)
+		aKey = TotalWarInput::panelKey(aKey);
+#endif
 		if(TheHotKeyManager && TheHotKeyManager->executeHotKey(aKey))
 			disp = DESTROY_MESSAGE;
 	}
@@ -158,6 +165,11 @@ void HotKeyManager::addHotKey( GameWindow *win, const AsciiString& keyIn)
 }
 
 //-----------------------------------------------------------------------------
+Bool HotKeyManager::hasHotKey(const AsciiString &key) const
+{
+	return m_hotKeyMap.find(key) != m_hotKeyMap.end();
+}
+
 Bool HotKeyManager::executeHotKey( const AsciiString& keyIn )
 {
 	AsciiString key = keyIn;
@@ -228,4 +240,3 @@ HotKeyManager *TheHotKeyManager = nullptr;
 //-----------------------------------------------------------------------------
 // PRIVATE FUNCTIONS //////////////////////////////////////////////////////////
 //-----------------------------------------------------------------------------
-

@@ -67,6 +67,9 @@
 
 // INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
+#if defined(RTS_ZEROHOUR)
+#include "GameClient/TotalWarInput.h"
+#endif
 
 #include "Common/GlobalData.h"
 #include "Common/BuildAssistant.h"
@@ -421,6 +424,10 @@ void ControlBar::populateBuildTooltipLayout( const CommandButton *commandButton,
 		}
 
 		name = TheGameText->fetch(commandButton->getTextLabel().str());
+		// GeneralsX @feature Codex 04/10/2026 Display the same replacement key that activates the command.
+#if defined(RTS_ZEROHOUR)
+		name = TotalWarInput::panelLabel(name);
+#endif
 
 		if( thingTemplate && commandButton->getCommandType() != GUI_COMMAND_PURCHASE_SCIENCE )
 		{

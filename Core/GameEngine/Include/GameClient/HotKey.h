@@ -94,6 +94,8 @@ public:
 
 	void addHotKey( GameWindow *win, const AsciiString& key);
 	Bool executeHotKey( const AsciiString& key); // called front eh HotKeyTranslator
+	// GeneralsX @feature Codex 04/10/2026 Query registered keys without changing their retail bindings.
+	Bool hasHotKey(const AsciiString &key) const;
 
 	AsciiString searchHotKey( const AsciiString& label);
 	AsciiString searchHotKey( const UnicodeString& uStr );

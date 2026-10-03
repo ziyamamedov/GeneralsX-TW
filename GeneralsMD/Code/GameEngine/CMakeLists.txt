@@ -693,6 +693,7 @@ set(GAMEENGINE_SRC
     Source/GameClient/FormationTranslator.cpp
     Source/GameClient/TotalWarControls.cpp
     Source/GameClient/TotalWarCamera.cpp
+    Source/GameClient/TotalWarInput.cpp
     Source/GameClient/GameClient.cpp
 #    Source/GameClient/GameClientDispatch.cpp
 #    Source/GameClient/GameText.cpp

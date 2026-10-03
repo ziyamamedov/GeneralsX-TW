@@ -3,6 +3,7 @@
 #include "GameClient/FormationTranslator.h"
 #include "GameClient/TotalWarControls.h"
 #include "GameClient/TotalWarCamera.h"
+#include "GameClient/TotalWarInput.h"
 #include "GameClient/FormationLayout.h"
 #include "Common/GameEngine.h"
 #include "Common/GlobalData.h"
@@ -20,6 +21,7 @@
 #include "GameClient/Shell.h"
 #include "GameClient/View.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Object.h"
 #include "GameLogic/TerrainLogic.h"
 #include "WWMath/wwmath.h"
@@ -43,6 +45,34 @@ namespace
 		ICoord2D start, end;
 		if (view->worldToScreen(&a, &start) && view->worldToScreen(&b, &end))
 			TheDisplay->drawLine(start.x, start.y, end.x, end.y, width, color);
+	}
+
+	// GeneralsX @refactor Codex 04/10/2026 Use identical triangles for active previews and existing orders.
+	void drawGroundMarker(View *view, const Coord3D &position, const Coord3D &direction, UnsignedInt color)
+	{
+		const Real sideX = direction.y;
+		const Real sideY = -direction.x;
+		Coord3D tip = position, left = position, right = position;
+		tip.x += direction.x * 12.0f;
+		tip.y += direction.y * 12.0f;
+		left.x += sideX * 7.0f - direction.x * 7.0f;
+		left.y += sideY * 7.0f - direction.y * 7.0f;
+		right.x -= sideX * 7.0f + direction.x * 7.0f;
+		right.y -= sideY * 7.0f + direction.y * 7.0f;
+		drawGroundLine(view, tip, left, color, 2.0f);
+		drawGroundLine(view, left, right, color, 2.0f);
+		drawGroundLine(view, right, tip, color, 2.0f);
+	}
+
+	Bool showOrderMarkers()
+	{
+		return TotalWarControls::isEnabled() && TheKeyboard && TheKeyboard->isAlt()
+			&& TheGameEngine && TheGameEngine->isActive()
+			&& TheGameLogic && TheGameLogic->isInInteractiveGame() && !TheGameLogic->isGamePaused()
+			&& TheInGameUI && TheInGameUI->getInputEnabled()
+			&& TheShell && !TheShell->isShellActive()
+			&& TheWindowManager && !TheWindowManager->winGetFocus()
+			&& TheRecorder && TheRecorder->getMode() != RECORDERMODETYPE_PLAYBACK;
 	}
 }
 
@@ -78,15 +108,15 @@ void FormationTranslator::cancel()
 	m_slots.clear();
 }
 
-Bool FormationTranslator::canStart(Bool preserving) const
+Bool FormationTranslator::canStart() const
 {
 	return TotalWarControls::isEnabled() && TheGlobalData->m_useAlternateMouse && TheTacticalView && TheInGameUI
 		&& TheInGameUI->getInputEnabled() && TheInGameUI->areSelectedObjectsControllable()
 		&& !TheInGameUI->getGUICommand() && !TheInGameUI->getPendingPlaceType()
 		&& !TheInGameUI->isSelecting()
-		// Alt/Ctrl still reach native modifier handling; only this captured gesture overrides their modes.
-		&& (preserving || (!TheInGameUI->isInWaypointMode()
-			&& !TheInGameUI->isInForceAttackMode() && !TheInGameUI->isInForceMoveToMode()))
+		// GeneralsX @feature Codex 04/10/2026 Shift/J retain native queue/force orders; Alt no longer queues.
+		&& !TheInGameUI->isInWaypointMode()
+		&& !TheInGameUI->isInForceAttackMode() && !TheInGameUI->isInForceMoveToMode()
 		&& !TheInGameUI->isInAttackMoveToMode()
 		&& TheWindowManager && !TheWindowManager->winGetFocus()
 		&& TheGameEngine->isActive() && TheGameLogic->isInInteractiveGame()
@@ -109,7 +139,7 @@ Bool FormationTranslator::selectionUnchanged() const
 
 Bool FormationTranslator::begin(const ICoord2D &screen, Bool preserving, Int modifiers)
 {
-	if (!canStart(preserving) || !TheTacticalView->screenToTerrain(&screen, &m_anchor))
+	if (!canStart() || !TheTacticalView->screenToTerrain(&screen, &m_anchor))
 		return false;
 
 	// GeneralsX @feature Codex 03/10/2026 Alt+LMB must start on a selected ground unit, never empty ground.
@@ -218,7 +248,7 @@ void FormationTranslator::updatePreview(const ICoord2D &screen, Int modifiers)
 
 void FormationTranslator::finish(const ICoord2D &screen, Int modifiers)
 {
-	if (!m_cancelled && canStart(m_preserving) && selectionUnchanged())
+	if (!m_cancelled && canStart() && selectionUnchanged())
 	{
 		updatePreview(screen, modifiers);
 		if (m_validPosition)
@@ -253,6 +283,9 @@ void FormationTranslator::finish(const ICoord2D &screen, Int modifiers)
 
 GameMessageDisposition FormationTranslator::translateGameMessage(const GameMessage *msg)
 {
+	// Update remapped modes before deciding whether the gesture belongs to formations or retail orders.
+	if (TotalWarInput::translateGameMessage(msg) == DESTROY_MESSAGE)
+		return DESTROY_MESSAGE;
 	// GeneralsX @feature Codex 03/10/2026 Reserve camera gestures after GUI routing, before unit hotkeys.
 	if (TotalWarCamera::translateGameMessage(msg) == DESTROY_MESSAGE)
 		return DESTROY_MESSAGE;
@@ -265,7 +298,7 @@ GameMessageDisposition FormationTranslator::translateGameMessage(const GameMessa
 	const GameMessage::Type type = msg->getType();
 	if (type == GameMessage::MSG_CLEAR_GAME_DATA)
 		reset();
-	if (m_active && !m_cancelled && (!canStart(m_preserving) || !selectionUnchanged()))
+	if (m_active && !m_cancelled && (!canStart() || !selectionUnchanged()))
 		cancel();
 
 	if (type == GameMessage::MSG_RAW_MOUSE_RIGHT_BUTTON_DOWN || type == GameMessage::MSG_RAW_MOUSE_RIGHT_DOUBLE_CLICK)
@@ -335,7 +368,7 @@ GameMessageDisposition FormationTranslator::translateGameMessage(const GameMessa
 			if (m_preserving && !m_cancelled
 				&& (msg->getArgument(0)->integer == KEY_LCTRL || msg->getArgument(0)->integer == KEY_RCTRL))
 				updatePreview(m_previewScreen, msg->getArgument(1)->integer);
-			// Never consume modifier transitions: native waypoint/force modes must receive their releases.
+			// Keep physical Ctrl transitions for formation rotation and ordinary keyboard shortcuts.
 			break;
 		case GameMessage::MSG_FRAME_TICK:
 		{
@@ -357,24 +390,25 @@ GameMessageDisposition FormationTranslator::translateGameMessage(const GameMessa
 
 void FormationTranslator::draw(View *view)
 {
-	if (!m_active || m_cancelled || !canStart(m_preserving) || !selectionUnchanged())
+	const Bool preview = m_active && !m_cancelled && canStart() && selectionUnchanged();
+	// GeneralsX @feature Codex 04/10/2026 Alt reveals all own ground-unit orders, including unselected ranks.
+	if (showOrderMarkers())
+	{
+		for (Drawable *drawable = TheGameClient->getDrawableList(); drawable; drawable = drawable->getNextDrawable())
+		{
+			Object *obj = drawable->getObject();
+			if (!canFormUp(obj) || !drawable->isSelectable() || drawable->isDrawableEffectivelyHidden()
+				|| (preview && drawable->isSelected()))
+				continue;
+			Coord3D position, direction;
+			obj->getAIUpdateInterface()->getFormationMarker(position, direction);
+			drawGroundMarker(view, position, direction, 0xB060DFFF);
+		}
+	}
+	if (!preview)
 		return;
 	const UnsignedInt color = m_validPosition ? 0xD060FF80 : 0xD0FFB040;
 	// GeneralsX @tweak Codex 02/10/2026 Show only individual destination/facing markers, without a connecting line.
 	for (std::vector<Slot>::const_iterator it = m_slots.begin(); it != m_slots.end(); ++it)
-	{
-		const Coord3D &direction = it->direction;
-		const Real sideX = direction.y;
-		const Real sideY = -direction.x;
-		Coord3D tip = it->position, left = it->position, right = it->position;
-		tip.x += direction.x * 12.0f;
-		tip.y += direction.y * 12.0f;
-		left.x += sideX * 7.0f - direction.x * 7.0f;
-		left.y += sideY * 7.0f - direction.y * 7.0f;
-		right.x -= sideX * 7.0f + direction.x * 7.0f;
-		right.y -= sideY * 7.0f + direction.y * 7.0f;
-		drawGroundLine(view, tip, left, color, 2.0f);
-		drawGroundLine(view, left, right, color, 2.0f);
-		drawGroundLine(view, right, tip, color, 2.0f);
-	}
+		drawGroundMarker(view, it->position, it->direction, color);
 }

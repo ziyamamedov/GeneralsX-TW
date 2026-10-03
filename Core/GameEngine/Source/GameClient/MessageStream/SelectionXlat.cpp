@@ -27,6 +27,9 @@
 // Author: Michael S. Booth, January 2001
 
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
+#if defined(RTS_ZEROHOUR)
+#include "GameClient/TotalWarControls.h"
+#endif
 
 #include "Common/ActionManager.h"
 #include "Common/GameAudio.h"
@@ -614,6 +617,11 @@ GameMessageDisposition SelectionTranslator::onMouseLeftDoubleClick(MAYBE_UNUSED 
 		return KEEP_MESSAGE;
 
 	Bool selectAcrossMap = (BitIsSet(modifiers, KEY_STATE_ALT) ? TRUE : FALSE);
+	// GeneralsX @feature Codex 04/10/2026 Alt is a visual aid, so it does not widen double-click selection.
+#if defined(RTS_ZEROHOUR)
+	if (TotalWarControls::isEnabled())
+		selectAcrossMap = false;
+#endif
 
 	// only allow things that are selectable. Also, we aren't allowed to
 	Drawable *picked = TheTacticalView->pickDrawable( &region.lo, FALSE, PICK_TYPE_SELECTABLE);
@@ -1046,7 +1054,14 @@ GameMessageDisposition SelectionTranslator::onRawMouseLeftButtonUp(MAYBE_UNUSED 
 
 		//Added support to cancel the GUI command without deselecting the unit(s) involved
 		//when you right click.
-		if( !TheInGameUI->getGUICommand() && !TheKeyboard->isShift() && !TheKeyboard->isCtrl() && !TheKeyboard->isAlt() )
+		Bool hasSelectionModifier = TheKeyboard->isShift() || TheKeyboard->isCtrl() || TheKeyboard->isAlt();
+		// GeneralsX @feature Codex 04/10/2026 J must protect force-attack clicks; Alt alone acts like a normal click.
+#if defined(RTS_ZEROHOUR)
+		if (TotalWarControls::isEnabled())
+			hasSelectionModifier = TheInGameUI->isInPreferSelectionMode()
+				|| TheInGameUI->isInWaypointMode() || TheInGameUI->isInForceAttackMode();
+#endif
+		if( !TheInGameUI->getGUICommand() && !hasSelectionModifier )
 		{
 			//No GUI command mode, so deselect everyone if we're in alternate mouse mode.
 			if( TheGlobalData->m_useAlternateMouse && TheInGameUI->getPendingPlaceSourceObjectID() == INVALID_ID )

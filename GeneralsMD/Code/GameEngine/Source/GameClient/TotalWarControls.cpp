@@ -2,6 +2,7 @@
 
 #include "GameClient/TotalWarControls.h"
 #include "GameClient/TotalWarCamera.h"
+#include "GameClient/TotalWarInput.h"
 #include "Common/GlobalData.h"
 #include "Common/OptionPreferences.h"
 #include "GameClient/FormationTranslator.h"
@@ -40,6 +41,7 @@ namespace
 		classicAlternateMouse = preferences.getBool("UseAlternateMouse", classicAlternateMouse);
 		TheWritableGlobalData->m_useAlternateMouse = enabled || classicAlternateMouse;
 		TotalWarCamera::reset();
+		TotalWarInput::reset();
 		if (TheFormationTranslator)
 			TheFormationTranslator->reset();
 	}

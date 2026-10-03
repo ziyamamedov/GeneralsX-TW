@@ -50,6 +50,9 @@
 #include "GameClient/DebugDisplay.h"	// for AudioDebugDisplay
 #include "GameClient/GameText.h"
 #include "GameClient/MetaEvent.h"
+#if defined(RTS_ZEROHOUR)
+#include "GameClient/TotalWarInput.h"
+#endif
 
 #include "GameLogic/GameLogic.h" // for TheGameLogic->getFrame()
 
@@ -576,6 +579,14 @@ void MetaEventTranslator::onKeyEvent(const GameMessage *msg, GameMessageDisposit
 	{
 		if (!isMessageUsable(map->m_usableIn))
 			continue;
+		// GeneralsX @feature Codex 04/10/2026 Total War owns held modes; preserve other retail shortcuts.
+#if defined(RTS_ZEROHOUR)
+		if (TotalWarInput::ownsModifierBinding(map->m_meta))
+			continue;
+		const MappableKeyType mappedKey = (MappableKeyType)TotalWarInput::commandKey(map->m_key);
+#else
+		const MappableKeyType mappedKey = map->m_key;
+#endif
 
 		// check for the special case of mods-only-changed.
 		if (
@@ -595,7 +606,7 @@ void MetaEventTranslator::onKeyEvent(const GameMessage *msg, GameMessageDisposit
 
 		// ok, now check for "normal" key transitions.
 		if (
-				map->m_key == key &&
+				mappedKey == key &&
 				map->m_modState == newModState &&
 				(
 					(map->m_transition == UP && (systemKeyState & KEY_STATE_UP)) ||

@@ -8,6 +8,7 @@
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Object.h"
+#include "WWMath/wwmath.h"
 
 // GeneralsX @refactor Codex 02/10/2026 Isolate synchronized formation behavior from retail AI implementations.
 // GeneralsX @feature Codex 26/09/2026 Reuse normal movement and save data for move-then-face orders.
@@ -77,6 +78,39 @@ void AIUpdateInterface::privateMoveToPositionAndFace(const AICommandParms *parms
 	m_isBlockedAndStuck = FALSE;
 	setLastCommandSource(parms->m_cmdSource);
 	getStateMachine()->setState(AI_FORMATION_MOVE);
+}
+
+// GeneralsX @feature Codex 04/10/2026 Derive markers from live orders, without caching or changing simulation state.
+void AIUpdateInterface::getFormationMarker(Coord3D &position, Coord3D &direction) const
+{
+	const Object *obj = getObject();
+	position = *obj->getPosition();
+	direction.x = WWMath::Cos(obj->getOrientation());
+	direction.y = WWMath::Sin(obj->getOrientation());
+	direction.z = 0.0f;
+	const AIStateMachine *machine = getStateMachine();
+	const StateID state = machine->getCurrentStateID();
+	if ((state == AI_FORMATION_MOVE || state == AI_FORMATION_FACE) && machine->getGoalPathSize() == 2)
+	{
+		const Coord3D *destination = machine->getGoalPathPosition(0);
+		const Coord3D *facing = machine->getGoalPathPosition(1);
+		const Real dx = facing->x - destination->x, dy = facing->y - destination->y;
+		const Real length = WWMath::Sqrt(dx * dx + dy * dy);
+		if (length > 0.1f)
+		{
+			direction.x = dx / length;
+			direction.y = dy / length;
+		}
+		// Keep the ordered slot even during a temporary avoidance move. On arrival, draw beneath the unit.
+		if (state == AI_FORMATION_MOVE)
+			position = *destination;
+	}
+	else if (state == AI_MOVE_TO && !machine->getGoalObject())
+		position = *machine->getGoalPosition();
+	else if (state == AI_FOLLOW_PATH && machine->getGoalPathSize() > 0)
+		position = *machine->getGoalPathPosition(machine->getGoalPathSize() - 1);
+	// Idle, Stop, attacks and other replacement orders use the current position/heading,
+	// even if the state machine still contains coordinates from a completed formation order.
 }
 
 void executeFormationOrder(const GameMessage *msg)

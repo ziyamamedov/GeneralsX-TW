@@ -27,7 +27,7 @@ private:
 		Coord3D originalPosition;
 		Coord3D originalDirection;
 	};
-	Bool canStart(Bool preserving) const;
+	Bool canStart() const;
 	Bool selectionUnchanged() const;
 	Bool begin(const ICoord2D &screen, Bool preserving, Int modifiers);
 	void updatePreview(const ICoord2D &screen, Int modifiers);
