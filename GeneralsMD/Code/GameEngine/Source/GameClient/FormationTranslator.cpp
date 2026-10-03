@@ -113,6 +113,7 @@ Bool FormationTranslator::begin(const ICoord2D &screen)
 		return false;
 
 	reset();
+	m_center.zero();
 	const DrawableList *selected = TheInGameUI->getAllSelectedDrawables();
 	for (DrawableListCIt it = selected->begin(); it != selected->end(); ++it)
 	{
@@ -122,16 +123,22 @@ Bool FormationTranslator::begin(const ICoord2D &screen)
 		Slot slot;
 		slot.objectID = obj->getID();
 		slot.position = m_anchor;
+		// GeneralsX @feature Codex 03/10/2026 Preserve each unit's offset and facing for ordinary group clicks.
+		slot.originalPosition = *obj->getPosition();
+		slot.originalDirection.x = WWMath::Cos(obj->getOrientation());
+		slot.originalDirection.y = WWMath::Sin(obj->getOrientation());
+		slot.originalDirection.z = 0.0f;
+		m_center.x += slot.originalPosition.x;
+		m_center.y += slot.originalPosition.y;
 		m_slots.push_back(slot);
 		m_spacing = max(m_spacing, 2.0f * obj->getGeometryInfo().getBoundingCircleRadius() + 8.0f);
 	}
 	if (m_slots.empty())
 		return false;
 
-	Object *first = TheGameLogic->findObjectByID(m_slots.front().objectID);
-	m_direction.x = WWMath::Cos(first->getOrientation());
-	m_direction.y = WWMath::Sin(first->getOrientation());
-	m_direction.z = 0.0f;
+	m_center.x /= (Real)m_slots.size();
+	m_center.y /= (Real)m_slots.size();
+	m_direction = m_slots.front().originalDirection;
 	m_screenAnchor = screen;
 	m_selectionCount = TheInGameUI->getSelectCount();
 	m_active = true;
@@ -162,7 +169,9 @@ void FormationTranslator::updatePreview(const ICoord2D &screen)
 	for (Int i = 0; i < count; ++i)
 	{
 		Coord3D &pos = m_slots[i].position;
-		pos = FormationLayout::slot(m_anchor, m_direction, m_dragged ? distance : 0.0f, m_spacing, i, count);
+		pos = m_dragged
+			? FormationLayout::slot(m_anchor, m_direction, distance, m_spacing, i, count)
+			: FormationLayout::translatedSlot(m_anchor, m_slots[i].originalPosition, m_center);
 		pos.z = TheTerrainLogic->getGroundHeight(pos.x, pos.y);
 	}
 }
@@ -174,18 +183,19 @@ void FormationTranslator::finish(const ICoord2D &screen)
 		updatePreview(screen);
 		if (m_validPosition)
 		{
-			if (!m_dragged)
+			if (!m_dragged && (m_slots.size() == 1 || (Int)m_slots.size() != m_selectionCount))
 			{
-				// A simple click keeps the original movement behavior, including unit voice feedback.
+				// Keep normal single-unit movement and context handling for mixed selections (e.g. aircraft).
 				TheGameClient->evaluateContextCommand(nullptr, &m_anchor, CommandTranslator::DO_COMMAND);
 			}
 			else
 			{
 				for (std::vector<Slot>::const_iterator it = m_slots.begin(); it != m_slots.end(); ++it)
 				{
+					const Coord3D &direction = m_dragged ? m_direction : it->originalDirection;
 					Coord3D facingPoint = it->position;
-					facingPoint.x += m_direction.x * 100.0f;
-					facingPoint.y += m_direction.y * 100.0f;
+					facingPoint.x += direction.x * 100.0f;
+					facingPoint.y += direction.y * 100.0f;
 					GameMessage *order = TheMessageStream->appendMessage(GameMessage::MSG_DO_FORMATION_MOVE);
 					order->appendObjectIDArgument(it->objectID);
 					order->appendLocationArgument(it->position);
@@ -269,18 +279,19 @@ void FormationTranslator::draw(View *view)
 	if (!m_active || m_cancelled || !canStart() || !selectionUnchanged())
 		return;
 	const UnsignedInt color = m_validPosition ? 0xD060FF80 : 0xD0FFB040;
-	const Real sideX = m_direction.y;
-	const Real sideY = -m_direction.x;
 	// GeneralsX @tweak Codex 02/10/2026 Show only individual destination/facing markers, without a connecting line.
 	for (std::vector<Slot>::const_iterator it = m_slots.begin(); it != m_slots.end(); ++it)
 	{
+		const Coord3D &direction = m_dragged ? m_direction : it->originalDirection;
+		const Real sideX = direction.y;
+		const Real sideY = -direction.x;
 		Coord3D tip = it->position, left = it->position, right = it->position;
-		tip.x += m_direction.x * 12.0f;
-		tip.y += m_direction.y * 12.0f;
-		left.x += sideX * 7.0f - m_direction.x * 7.0f;
-		left.y += sideY * 7.0f - m_direction.y * 7.0f;
-		right.x -= sideX * 7.0f + m_direction.x * 7.0f;
-		right.y -= sideY * 7.0f + m_direction.y * 7.0f;
+		tip.x += direction.x * 12.0f;
+		tip.y += direction.y * 12.0f;
+		left.x += sideX * 7.0f - direction.x * 7.0f;
+		left.y += sideY * 7.0f - direction.y * 7.0f;
+		right.x -= sideX * 7.0f + direction.x * 7.0f;
+		right.y -= sideY * 7.0f + direction.y * 7.0f;
 		drawGroundLine(view, tip, left, color, 2.0f);
 		drawGroundLine(view, left, right, color, 2.0f);
 		drawGroundLine(view, right, tip, color, 2.0f);

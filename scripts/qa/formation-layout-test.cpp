@@ -25,47 +25,35 @@ static void assertPosition(const Coord3D &position, float x, float y)
 	assert(near(position.x, x) && near(position.y, y));
 }
 
-// GeneralsX @feature Codex 02/10/2026 Cover anchored ranks, exact capacity boundaries and incomplete rear ranks.
+// GeneralsX @tweak Codex 03/10/2026 Short and long drags always produce one row starting at mouse-down.
 static void testThreeUnits()
 {
 	const Coord3D start = { 100.0f, 200.0f, 0.0f };
 	const Coord3D north = { 0.0f, 1.0f, 0.0f };
 	const float spacing = 40.0f;
-	// A short drag gives one file extending behind the front unit, never sideways past the anchor.
-	for (int i = 0; i < 3; ++i)
-		assertPosition(FormationLayout::slot(start, north, 10.0f, spacing, i, 3), 100.0f, 200.0f - i * spacing);
-	assertPosition(FormationLayout::slot(start, north, 39.99f, spacing, 1, 3), 100.0f, 160.0f);
-	// At the spacing boundary the second unit joins the first rank; the third stays behind.
-	assertPosition(FormationLayout::slot(start, north, 40.0f, spacing, 1, 3), 140.0f, 200.0f);
-	assertPosition(FormationLayout::slot(start, north, 60.0f, spacing, 1, 3), 160.0f, 200.0f);
-	assertPosition(FormationLayout::slot(start, north, 60.0f, spacing, 2, 3), 100.0f, 160.0f);
-	assertPosition(FormationLayout::slot(start, north, 79.99f, spacing, 2, 3), 100.0f, 160.0f);
-	// Once all fit, the front rank spans exactly from mouse-down to the cursor.
-	for (int i = 0; i < 3; ++i)
+	for (float width : { 0.0f, 10.0f, 39.99f, 40.0f, 60.0f, 79.99f, 80.0f })
 	{
-		assertPosition(FormationLayout::slot(start, north, 80.0f, spacing, i, 3), 100.0f + i * spacing, 200.0f);
-		assertPosition(FormationLayout::slot(start, north, 200.0f, spacing, i, 3), 100.0f + i * 100.0f, 200.0f);
+		for (int i = 0; i < 3; ++i)
+			assertPosition(FormationLayout::slot(start, north, width, spacing, i, 3), 100.0f + i * spacing, 200.0f);
 	}
+	// Above the minimum width the row stretches to the cursor, still anchored at its first unit.
+	for (int i = 0; i < 3; ++i)
+		assertPosition(FormationLayout::slot(start, north, 200.0f, spacing, i, 3), 100.0f + i * 100.0f, 200.0f);
 }
 
 static void testTenUnits()
 {
 	const Coord3D start = { 100.0f, 200.0f, 0.0f };
 	const Coord3D north = { 0.0f, 1.0f, 0.0f };
-	// Growing and then shrinking through 1..10 places covers 2x5, 3+3+3+1, 4+4+2, 5+5, 6+4, 7+3, etc.
-	for (int step = 1; step <= 19; ++step)
+	// Growing and shrinking never creates rear ranks, including widths that used to produce 2x5 or 5x2.
+	for (float width : { 0.0f, 40.0f, 80.0f, 160.0f, 200.0f, 360.0f, 720.0f, 360.0f, 160.0f, 40.0f, 0.0f })
 	{
-		const int columns = step <= 10 ? step : 20 - step;
-		const float width = (columns - 1) * 40.0f;
-		int frontCount = 0;
+		const float spacing = width > 360.0f ? 80.0f : 40.0f;
 		for (int i = 0; i < 10; ++i)
 		{
 			Coord3D pos = FormationLayout::slot(start, north, width, 40.0f, i, 10);
-			assertPosition(pos, 100.0f + (i % columns) * 40.0f, 200.0f - (i / columns) * 40.0f);
-			if (near(pos.y, start.y))
-				++frontCount;
+			assertPosition(pos, 100.0f + i * spacing, 200.0f);
 		}
-		assert(frontCount == columns);
 	}
 }
 
@@ -87,6 +75,7 @@ static void testDirectionsAndSpacing()
 		{
 			for (float width : { 0.0f, 10.0f, 39.99f, 40.0f, 79.99f, 80.0f, 100.0f, 200.0f, 1240.0f })
 			{
+				float previousAlong = -1.0f;
 				for (int i = 0; i < count; ++i)
 				{
 					Coord3D pos = FormationLayout::slot(start, direction, width, 40.0f, i, count);
@@ -94,10 +83,13 @@ static void testDirectionsAndSpacing()
 					const float x = pos.x - start.x, y = pos.y - start.y;
 					const float along = x * drag.x + y * drag.y;
 					const float forward = x * direction.x + y * direction.y;
-					assert(along >= -0.001f && along <= width + 0.001f);
-					assert(forward <= 0.001f); // Overflow is behind, regardless of the drag's direction.
+					assert(along >= -0.001f && along > previousAlong);
+					assert(near(forward, 0.0f)); // All units stay on the same line for every drag direction.
+					previousAlong = along;
 					if (i == 0)
 						assertPosition(pos, start.x, start.y);
+					if (i == count - 1)
+						assert(near(along, max(width, 40.0f * (count - 1))));
 					for (int j = 0; j < i; ++j)
 					{
 						Coord3D other = FormationLayout::slot(start, direction, width, 40.0f, j, count);
@@ -108,6 +100,47 @@ static void testDirectionsAndSpacing()
 			}
 		}
 	}
+}
+
+// GeneralsX @feature Codex 03/10/2026 Plain clicks preserve arbitrary shapes and center them on the clicked point.
+static void testCenteredClicks()
+{
+	const Coord3D destination = { 1000.0f, 1500.0f, 0.0f };
+	const Coord3D positions[] = {
+		{ 100.0f, 200.0f, 0.0f }, { 160.0f, 230.0f, 0.0f },
+		{ 70.0f, 140.0f, 0.0f }, { 270.0f, 110.0f, 0.0f }
+	};
+	const Coord3D center = { 150.0f, 170.0f, 0.0f };
+	const Coord3D expected[] = {
+		{ 950.0f, 1530.0f, 0.0f }, { 1010.0f, 1560.0f, 0.0f },
+		{ 920.0f, 1470.0f, 0.0f }, { 1120.0f, 1440.0f, 0.0f }
+	};
+	Coord3D sum = { 0.0f, 0.0f, 0.0f };
+	for (int i = 0; i < 4; ++i)
+	{
+		const Coord3D pos = FormationLayout::translatedSlot(destination, positions[i], center);
+		assertPosition(pos, expected[i].x, expected[i].y);
+		sum.x += pos.x;
+		sum.y += pos.y;
+		for (int j = 0; j < i; ++j)
+		{
+			const Coord3D other = FormationLayout::translatedSlot(destination, positions[j], center);
+			assert(near(pos.x - other.x, positions[i].x - positions[j].x));
+			assert(near(pos.y - other.y, positions[i].y - positions[j].y));
+		}
+		assertPosition(FormationLayout::translatedSlot(center, pos, destination), positions[i].x, positions[i].y);
+	}
+	assertPosition(sum, destination.x * 4, destination.y * 4);
+	assertPosition(FormationLayout::translatedSlot(destination, center, center), destination.x, destination.y);
+
+	// An existing row stays centered on a click; a newly dragged row starts at that same point instead.
+	const Coord3D north = { 0.0f, 1.0f, 0.0f };
+	const Coord3D first = { 110.0f, 170.0f, 0.0f };
+	const Coord3D last = { 190.0f, 170.0f, 0.0f };
+	assertPosition(FormationLayout::translatedSlot(destination, first, center), 960.0f, 1500.0f);
+	assertPosition(FormationLayout::translatedSlot(destination, last, center), 1040.0f, 1500.0f);
+	assertPosition(FormationLayout::slot(destination, north, 80.0f, 40.0f, 0, 3), 1000.0f, 1500.0f);
+	assertPosition(FormationLayout::slot(destination, north, 80.0f, 40.0f, 2, 3), 1080.0f, 1500.0f);
 }
 
 int main()
@@ -123,5 +156,6 @@ int main()
 	testThreeUnits();
 	testTenUnits();
 	testDirectionsAndSpacing();
-	std::puts("Formation layout: fixed anchor, expanding/shrinking ranks, reverse/diagonal drags, spacing and single-unit facing passed.");
+	testCenteredClicks();
+	std::puts("Formation layout: anchored single rows, minimum spacing, reverse/diagonal drags, centered shape-preserving clicks and single-unit facing passed.");
 }

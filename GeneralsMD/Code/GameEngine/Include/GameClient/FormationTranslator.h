@@ -21,6 +21,9 @@ private:
 	{
 		ObjectID objectID;
 		Coord3D position;
+		// GeneralsX @feature Codex 03/10/2026 Capture the arrangement and headings before previewing a new order.
+		Coord3D originalPosition;
+		Coord3D originalDirection;
 	};
 	Bool canStart() const;
 	Bool selectionUnchanged() const;
@@ -36,6 +39,7 @@ private:
 	Bool m_releasePending;
 	ICoord2D m_screenAnchor;
 	Coord3D m_anchor;
+	Coord3D m_center;
 	Coord3D m_direction;
 	Real m_spacing;
 	Int m_selectionCount;

@@ -10,13 +10,23 @@ The existing `UseAlternateMouse` preference is retained for Classic; its checkbo
 disabled while Total War is selected. Switching back restores that preference and the
 original camera-scroll policy. Selecting a mode does not require restarting the game.
 
-For multiple ground units, mouse-down anchors the first position in the front rank.
-Dragging sets that rank's width and direction; units face perpendicular to the drag.
-Units that do not fit wrap into ranks behind it, aligned to the same starting edge.
-Widening the drag moves units from rear ranks into the front rank; narrowing reverses it.
-Spacing in both directions respects the largest selected unit's footprint plus a gap.
-Only the individual triangle markers are drawn. A single unit still stays at the clicked
-destination while dragging selects its final facing. An ordinary click keeps normal movement.
+For multiple ground units, dragging creates a single row starting at mouse-down and
+extending toward the cursor. Units face perpendicular to the drag. A short drag keeps
+the minimum spacing (the largest selected unit's footprint plus a gap), so the row may
+extend beyond the cursor; longer drags spread it out. No rear ranks are created.
+
+An ordinary group click translates the current arrangement so its center lands at the
+clicked point. Positions and headings are captured at mouse-down; the center is the
+average of those positions. Each unit keeps its relative offset and final heading.
+This also preserves existing multi-row or irregular arrangements instead of creating
+a new row. Preview markers and orders use the same destinations. These are arrival
+positions: the normal pathfinder still handles travel, obstacles and map boundaries,
+so units do not maintain a rigid formation while moving.
+
+Only the individual triangle markers are drawn. A single unit stays at the clicked
+destination while dragging selects its final facing. Ordinary single-unit clicks and
+clicks with mixed selections containing unsupported units (such as aircraft) keep normal
+movement. Object context orders such as attacking and garrisoning also remain unchanged.
 
 ## Feature implementation
 
@@ -50,4 +60,6 @@ Run the standalone geometry test using the command in `scripts/qa/formation-layo
 Build `z_generals`, play an original replay and a replay containing formation commands,
 and check the dropdown's default, Accept, Cancel, Defaults and restart persistence.
 For interaction checks, compare ordinary right-click/drag behavior in Classic with the
-single-unit facing and group rank previews in Total War, then switch back during a match.
+single-unit facing, anchored group rows and centered group clicks in Total War, then
+switch back during a match. Check short/long drags in both directions, followed by a
+click after arrival: the row should retain its spacing and heading around the new center.
