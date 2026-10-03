@@ -29,6 +29,7 @@
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 #if RTS_ZEROHOUR
 #include "GameClient/TotalWarControls.h"
+#include "GameClient/TotalWarCamera.h"
 #endif
 
 #include "Common/FramePacer.h"
@@ -212,6 +213,11 @@ GameMessageDisposition LookAtTranslator::translateGameMessage(const GameMessage 
 		case GameMessage::MSG_RAW_KEY_DOWN:
 		case GameMessage::MSG_RAW_KEY_UP:
 		{
+#if RTS_ZEROHOUR
+			// GeneralsX @feature Codex 03/10/2026 Total War reserves keyboard panning for WASD.
+			if (TotalWarControls::isEnabled())
+				break;
+#endif
 			// get key and state from args
 			UnsignedByte key		= msg->getArgument( 0 )->integer;
 			UnsignedByte state	= msg->getArgument( 1 )->integer;
@@ -450,6 +456,24 @@ GameMessageDisposition LookAtTranslator::translateGameMessage(const GameMessage 
 		{
 			Coord2D offset = {0, 0};
 
+#if RTS_ZEROHOUR
+			// GeneralsX @feature Codex 03/10/2026 Isolated camera input shares native scrolling and replay recording.
+			if (TotalWarControls::isEnabled())
+			{
+				for (Int i = 0; i < 4; ++i)
+					scrollDir[i] = false;
+				if (m_isScrolling && m_scrollType == SCROLL_KEY)
+					stopScrolling();
+			}
+			if (TotalWarCamera::getScrollOffset(offset))
+			{
+				if (m_isScrolling)
+					stopScrolling();
+				TheInGameUI->setScrollAmount(offset);
+				TheTacticalView->userScrollBy(&offset);
+			}
+			else
+#endif
 			if (m_isScrolling && !TheInGameUI->isScrolling())
 			{
 				// If we've been forced to stop scrolling (script action?)

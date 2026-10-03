@@ -2,6 +2,7 @@
 
 #include "GameClient/FormationTranslator.h"
 #include "GameClient/TotalWarControls.h"
+#include "GameClient/TotalWarCamera.h"
 #include "GameClient/FormationLayout.h"
 #include "Common/GameEngine.h"
 #include "Common/GlobalData.h"
@@ -213,6 +214,9 @@ void FormationTranslator::finish(const ICoord2D &screen)
 
 GameMessageDisposition FormationTranslator::translateGameMessage(const GameMessage *msg)
 {
+	// GeneralsX @feature Codex 03/10/2026 Reserve camera gestures after GUI routing, before unit hotkeys.
+	if (TotalWarCamera::translateGameMessage(msg) == DESTROY_MESSAGE)
+		return DESTROY_MESSAGE;
 	// GeneralsX @feature Codex 02/10/2026 Classic input passes through without consuming any events.
 	if (!TotalWarControls::isEnabled())
 	{

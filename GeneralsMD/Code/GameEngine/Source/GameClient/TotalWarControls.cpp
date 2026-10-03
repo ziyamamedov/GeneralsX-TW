@@ -1,6 +1,7 @@
 #include "PreRTS.h"
 
 #include "GameClient/TotalWarControls.h"
+#include "GameClient/TotalWarCamera.h"
 #include "Common/GlobalData.h"
 #include "Common/OptionPreferences.h"
 #include "GameClient/FormationTranslator.h"
@@ -38,6 +39,7 @@ namespace
 		enabled = preferences.getAsciiString(preferenceKey, "Classic") == "TotalWar";
 		classicAlternateMouse = preferences.getBool("UseAlternateMouse", classicAlternateMouse);
 		TheWritableGlobalData->m_useAlternateMouse = enabled || classicAlternateMouse;
+		TotalWarCamera::reset();
 		if (TheFormationTranslator)
 			TheFormationTranslator->reset();
 	}

@@ -58,6 +58,9 @@ Utilities for large-scale code refactoring and fixes:
 
 ### `qa/` - Quality Assurance & Testing
 
+- `formation-layout-test.cpp` - Standalone Zero Hour formation geometry regression test; build/run command in the file header
+- `total-war-camera-input-test.cpp` - Standalone Total War camera key ownership and cancellation regression test; build/run command in the file header
+
 #### `qa/smoke/` - Smoke Tests
 - `docker-smoke-test-zh.sh` - Quick startup validation (expects crash, checks init output)
 - `run-bundled-game.sh` - Test bundled binary after deployment

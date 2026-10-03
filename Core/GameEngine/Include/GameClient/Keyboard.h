@@ -112,6 +112,8 @@ public:
 	Bool isCtrl();
 	Bool isAlt();
 	Int getModifierFlags() { return m_modifiers; }
+	// GeneralsX @feature Codex 03/10/2026 Let local camera controls detect releases consumed by GUI input.
+	Bool isKeyDown(KeyDefType key) { return getKeyStateBit(key, KEY_STATE_DOWN); }
 
 	// access methods for key data
 	void resetKeys();												///< reset the state of the keys
