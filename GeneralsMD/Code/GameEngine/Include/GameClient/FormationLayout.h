@@ -39,4 +39,21 @@ namespace FormationLayout
 		result.y += position.y - center.y;
 		return result;
 	}
+
+	// GeneralsX @feature Codex 03/10/2026 Rotate offsets and individual headings by the same rigid transform.
+	inline Coord3D rotatedDirection(const Coord3D &direction, Real cosine, Real sine)
+	{
+		Coord3D result = { direction.x * cosine - direction.y * sine,
+			direction.x * sine + direction.y * cosine, 0.0f };
+		return result;
+	}
+
+	inline Coord3D transformedSlot(const Coord3D &destination, const Coord3D &position,
+		const Coord3D &center, Real cosine, Real sine)
+	{
+		Coord3D offset = { position.x - center.x, position.y - center.y, 0.0f };
+		offset = rotatedDirection(offset, cosine, sine);
+		Coord3D result = { destination.x + offset.x, destination.y + offset.y, destination.z };
+		return result;
+	}
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common/MessageStream.h"
+#include "GameClient/FormationDrag.h"
 #include <vector>
 
 class Object;
@@ -21,15 +22,16 @@ private:
 	{
 		ObjectID objectID;
 		Coord3D position;
+		Coord3D direction;
 		// GeneralsX @feature Codex 03/10/2026 Capture the arrangement and headings before previewing a new order.
 		Coord3D originalPosition;
 		Coord3D originalDirection;
 	};
-	Bool canStart() const;
+	Bool canStart(Bool preserving) const;
 	Bool selectionUnchanged() const;
-	Bool begin(const ICoord2D &screen);
-	void updatePreview(const ICoord2D &screen);
-	void finish(const ICoord2D &screen);
+	Bool begin(const ICoord2D &screen, Bool preserving, Int modifiers);
+	void updatePreview(const ICoord2D &screen, Int modifiers);
+	void finish(const ICoord2D &screen, Int modifiers);
 	void cancel();
 
 	Bool m_active;
@@ -37,7 +39,10 @@ private:
 	Bool m_dragged;
 	Bool m_validPosition;
 	Bool m_releasePending;
+	Bool m_preserving;
 	ICoord2D m_screenAnchor;
+	ICoord2D m_previewScreen;
+	FormationDrag m_preservedDrag;
 	Coord3D m_anchor;
 	Coord3D m_center;
 	Coord3D m_direction;

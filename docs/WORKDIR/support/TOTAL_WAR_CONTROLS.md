@@ -40,6 +40,25 @@ destination while dragging selects its final facing. Ordinary single-unit clicks
 clicks with mixed selections containing unsupported units (such as aircraft) keep normal
 movement. Object context orders such as attacking and garrisoning also remain unchanged.
 
+To reposition an existing formation, hold **Alt** and **drag LMB from an already selected
+ground unit**. The markers follow the cursor with the captured arrangement's center
+under it; all relative offsets and individual headings are retained, including multiple
+ranks. Starting on empty ground or an unselected unit keeps normal selection behavior.
+Only eligible mobile ground units participate; aircraft and buildings are not moved.
+
+While holding LMB, add **Command on macOS / Ctrl on Windows or Linux**, then drag
+horizontally to rotate the arrangement and all its headings around the fixed preview
+center. Release the modifier and move the mouse to resume cursor-centered translation.
+Releasing the modifier without moving keeps the last preview in place, so releasing
+both keys/buttons together does not accidentally shift the destination. Starting the
+gesture with Alt+Command/Ctrl already held rotates around the formation's original center.
+
+Release **LMB** to issue the previewed orders; **Escape** cancels. Alt may be released
+after starting the gesture without losing it. A selection change, menu, text focus,
+disabled input or app focus loss cancels the preview. A release consumed by the HUD is
+cancelled instead of issuing a hidden order. These gestures are local to Total War mode
+and use the existing formation-order protocol. Normal pathfinding still controls travel.
+
 ## Feature implementation
 
 - `GeneralsMD/Code/GameEngine/Source/GameClient/TotalWarControls.cpp`: preference loading,
@@ -48,6 +67,8 @@ movement. Object context orders such as attacking and garrisoning also remain un
 - `GeneralsMD/Code/GameEngine/Source/GameClient/FormationTranslator.cpp`: optional mouse
   gestures, previews and sending orders. Classic passes every message through unchanged.
 - `GeneralsMD/Code/GameEngine/Include/GameClient/FormationLayout.h`: preview geometry.
+- `GeneralsMD/Code/GameEngine/Include/GameClient/FormationDrag.h`: preserved formation
+  translation/rotation state and modifier transitions, independent of rendering/input devices.
 - `GeneralsMD/Code/GameEngine/Source/GameClient/TotalWarCamera.cpp`: input reservation,
   WASD scrolling and middle-button rotation. `TotalWarCameraInput.h` holds the testable
   key ownership state. Input is routed after windows but before gameplay hotkeys; the
@@ -85,3 +106,11 @@ switch back during a match. Check short/long drags in both directions, followed 
 click after arrival: the row should retain its spacing and heading around the new center.
 Check WASD with and without selected units, release over the HUD, chat typing, menu/app
 focus transitions, middle-button rotation/click/zoom and switching back to Classic.
+For Alt+LMB, arrange tanks, anti-air and infantry in separate ranks, select them together,
+and drag from a selected unit. Check the centered markers and the final arrangement.
+Add/remove Command/Ctrl during the drag, rotate in both directions and release it together
+with LMB: the issued positions/headings should match the last preview. Also check rotation
+in place, a single unit, Alt release before LMB, Escape, release over the HUD, selection
+changes and starting on empty ground/an unselected unit. The geometry test covers rigid
+transforms, mixed headings, a fixed rotation pivot and modifier transition behavior;
+it does not replace interactive checks of the actual mouse/key gesture.

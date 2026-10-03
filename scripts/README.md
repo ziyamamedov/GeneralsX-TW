@@ -58,7 +58,7 @@ Utilities for large-scale code refactoring and fixes:
 
 ### `qa/` - Quality Assurance & Testing
 
-- `formation-layout-test.cpp` - Standalone Zero Hour formation geometry regression test; build/run command in the file header
+- `formation-layout-test.cpp` - Standalone Zero Hour formation geometry and Alt-drag modifier transition regression test; build/run command in the file header
 - `total-war-camera-input-test.cpp` - Standalone Total War camera key ownership and cancellation regression test; build/run command in the file header
 
 #### `qa/smoke/` - Smoke Tests

@@ -79,7 +79,9 @@ GameMessageDisposition TotalWarCamera::translateGameMessage(const GameMessage *m
 		}
 		case GameMessage::MSG_RAW_MOUSE_MIDDLE_BUTTON_DOWN:
 		case GameMessage::MSG_RAW_MOUSE_MIDDLE_DOUBLE_CLICK:
-			if (allowed && !TheInGameUI->isSelecting() && TheMouse->getMouseStatus()->rightState == MBS_Up)
+			// GeneralsX @bugfix Codex 03/10/2026 Do not steal an Alt+LMB formation drag for camera rotation.
+			if (allowed && !TheInGameUI->isSelecting() && TheMouse->getMouseStatus()->rightState == MBS_Up
+				&& TheMouse->getMouseStatus()->leftState == MBS_Up)
 			{
 				rotating = true;
 				rotationAnchorX = msg->getArgument(0)->pixel.x;

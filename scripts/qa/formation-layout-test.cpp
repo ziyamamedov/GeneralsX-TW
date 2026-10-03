@@ -11,6 +11,7 @@
 using std::min;
 using std::max;
 #include "GameClient/FormationLayout.h"
+#include "GameClient/FormationDrag.h"
 #include <cassert>
 #include <cmath>
 #include <cstdio>
@@ -143,6 +144,89 @@ static void testCenteredClicks()
 	assertPosition(FormationLayout::slot(destination, north, 80.0f, 40.0f, 2, 3), 1080.0f, 1500.0f);
 }
 
+// GeneralsX @feature Codex 03/10/2026 Keep three ranks and mixed headings rigid through translation/rotation.
+static void testPreservedFormation()
+{
+	const Coord3D center = { 120.0f, 150.0f, 0.0f };
+	const Coord3D destination = { 500.0f, 900.0f, 0.0f };
+	const Coord3D positions[] = {
+		{ 100.0f, 200.0f, 0.0f }, { 140.0f, 200.0f, 0.0f },
+		{ 100.0f, 150.0f, 0.0f }, { 140.0f, 150.0f, 0.0f },
+		{ 100.0f, 100.0f, 0.0f }, { 140.0f, 100.0f, 0.0f }
+	};
+	const Coord3D headings[] = { { 1.0f, 0.0f, 0.0f }, { 0.0f, -1.0f, 0.0f }, { 0.6f, 0.8f, 0.0f } };
+	for (float angle : { 0.0f, 0.5f, -0.5f, 1.5707963f, -1.5707963f, 3.1415926f, 6.2831853f })
+	{
+		const float cosine = std::cos(angle), sine = std::sin(angle);
+		Coord3D sum = { 0.0f, 0.0f, 0.0f };
+		for (int i = 0; i < 6; ++i)
+		{
+			const Coord3D pos = FormationLayout::transformedSlot(destination, positions[i], center, cosine, sine);
+			sum.x += pos.x;
+			sum.y += pos.y;
+			const Coord3D restored = FormationLayout::transformedSlot(center, pos, destination, cosine, -sine);
+			assertPosition(restored, positions[i].x, positions[i].y);
+			for (int j = 0; j < i; ++j)
+			{
+				const Coord3D other = FormationLayout::transformedSlot(destination, positions[j], center, cosine, sine);
+				const float dx = pos.x - other.x, dy = pos.y - other.y;
+				const float oldDx = positions[i].x - positions[j].x, oldDy = positions[i].y - positions[j].y;
+				assert(std::fabs(dx * dx + dy * dy - oldDx * oldDx - oldDy * oldDy) < 0.05f);
+			}
+		}
+		assertPosition(sum, destination.x * 6, destination.y * 6);
+		for (const Coord3D &heading : headings)
+		{
+			const Coord3D rotated = FormationLayout::rotatedDirection(heading, cosine, sine);
+			assert(near(rotated.x * rotated.x + rotated.y * rotated.y, 1.0f));
+			const Coord3D restored = FormationLayout::rotatedDirection(rotated, cosine, -sine);
+			assertPosition(restored, heading.x, heading.y);
+		}
+	}
+	// Explicit quarter-turn oracle: the first tank ends left/behind center and an east heading becomes north.
+	assertPosition(FormationLayout::transformedSlot(destination, positions[0], center, 0.0f, 1.0f), 450.0f, 880.0f);
+	assertPosition(FormationLayout::rotatedDirection(headings[0], 0.0f, 1.0f), 0.0f, 1.0f);
+	// A single unit remains on the destination while its facing rotates.
+	assertPosition(FormationLayout::transformedSlot(destination, center, center, 0.0f, -1.0f), 500.0f, 900.0f);
+}
+
+static void testPreservedDragTransitions()
+{
+	FormationDrag drag;
+	const Coord3D start = { 100.0f, 200.0f, 0.0f };
+	const Coord3D destination = { 500.0f, 900.0f, 0.0f };
+	const Coord3D beyond = { 700.0f, 1000.0f, 0.0f };
+	drag.begin(start, { 100, 100 }, false);
+	drag.update(destination, { 300, 200 }, false);
+	assertPosition(drag.center(), 500.0f, 900.0f);
+	assert(near(drag.angle(), 0.0f));
+	drag.update(destination, { 300, 200 }, true); // Press Ctrl without moving.
+	drag.update(beyond, { 400, 400 }, true); // Horizontal motion rotates; vertical motion does not move the pivot.
+	assertPosition(drag.center(), 500.0f, 900.0f);
+	assert(near(drag.angle(), 1.0f));
+	drag.update(beyond, { 400, 400 }, false); // Ctrl-up.
+	for (int i = 0; i < 4; ++i)
+		drag.update(beyond, { 400, 400 }, false); // Position ticks and LMB-up must keep exactly the previewed target.
+	assertPosition(drag.center(), 500.0f, 900.0f);
+	assert(near(drag.angle(), 1.0f));
+	drag.update(beyond, { 410, 400 }, false); // Moving again resumes cursor-centered translation with the new heading.
+	assertPosition(drag.center(), 700.0f, 1000.0f);
+	assert(near(drag.angle(), 1.0f));
+	drag.update(beyond, { 410, 400 }, true);
+	drag.update(start, { 210, 400 }, true);
+	assertPosition(drag.center(), 700.0f, 1000.0f);
+	assert(near(drag.angle(), -1.0f)); // Re-entering rotation accumulates, rather than resetting the heading.
+	drag.begin(start, { 0, 0 }, true); // Starting with Alt+Ctrl rotates around the original center.
+	drag.update(destination, { 0, 100 }, true);
+	assertPosition(drag.center(), 100.0f, 200.0f);
+	assert(near(drag.angle(), 0.0f));
+	drag.update(destination, { -100, 100 }, true);
+	assert(near(drag.angle(), -1.0f));
+	drag.begin(destination, { 0, 0 }, false); // The next gesture starts fresh.
+	assertPosition(drag.center(), 500.0f, 900.0f);
+	assert(near(drag.angle(), 0.0f));
+}
+
 int main()
 {
 	const Coord3D start = { 100.0f, 200.0f, 0.0f };
@@ -157,5 +241,7 @@ int main()
 	testTenUnits();
 	testDirectionsAndSpacing();
 	testCenteredClicks();
-	std::puts("Formation layout: anchored single rows, minimum spacing, reverse/diagonal drags, centered shape-preserving clicks and single-unit facing passed.");
+	testPreservedFormation();
+	testPreservedDragTransitions();
+	std::puts("Formation layout: anchored rows, centered clicks, rigid multi-rank rotation, individual headings and drag modifier transitions passed.");
 }

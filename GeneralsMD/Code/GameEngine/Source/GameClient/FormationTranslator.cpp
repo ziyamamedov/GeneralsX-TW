@@ -12,6 +12,7 @@
 #include "GameClient/Display.h"
 #include "GameClient/Drawable.h"
 #include "GameClient/GameClient.h"
+#include "GameClient/GameWindowManager.h"
 #include "GameClient/InGameUI.h"
 #include "GameClient/Keyboard.h"
 #include "GameClient/Mouse.h"
@@ -64,6 +65,7 @@ void FormationTranslator::reset()
 	m_dragged = false;
 	m_validPosition = false;
 	m_releasePending = false;
+	m_preserving = false;
 	m_spacing = 20.0f;
 	m_selectionCount = 0;
 	m_slots.clear();
@@ -76,14 +78,17 @@ void FormationTranslator::cancel()
 	m_slots.clear();
 }
 
-Bool FormationTranslator::canStart() const
+Bool FormationTranslator::canStart(Bool preserving) const
 {
 	return TotalWarControls::isEnabled() && TheGlobalData->m_useAlternateMouse && TheTacticalView && TheInGameUI
 		&& TheInGameUI->getInputEnabled() && TheInGameUI->areSelectedObjectsControllable()
 		&& !TheInGameUI->getGUICommand() && !TheInGameUI->getPendingPlaceType()
-		&& !TheInGameUI->isSelecting() && !TheInGameUI->isInWaypointMode()
-		&& !TheInGameUI->isInForceAttackMode() && !TheInGameUI->isInForceMoveToMode()
+		&& !TheInGameUI->isSelecting()
+		// Alt/Ctrl still reach native modifier handling; only this captured gesture overrides their modes.
+		&& (preserving || (!TheInGameUI->isInWaypointMode()
+			&& !TheInGameUI->isInForceAttackMode() && !TheInGameUI->isInForceMoveToMode()))
 		&& !TheInGameUI->isInAttackMoveToMode()
+		&& TheWindowManager && !TheWindowManager->winGetFocus()
 		&& TheGameEngine->isActive() && TheGameLogic->isInInteractiveGame()
 		&& !TheGameLogic->isGamePaused() && !TheShell->isShellActive()
 		&& TheRecorder->getMode() != RECORDERMODETYPE_PLAYBACK;
@@ -102,18 +107,27 @@ Bool FormationTranslator::selectionUnchanged() const
 	return true;
 }
 
-Bool FormationTranslator::begin(const ICoord2D &screen)
+Bool FormationTranslator::begin(const ICoord2D &screen, Bool preserving, Int modifiers)
 {
-	if (!canStart() || !TheTacticalView->screenToTerrain(&screen, &m_anchor))
+	if (!canStart(preserving) || !TheTacticalView->screenToTerrain(&screen, &m_anchor))
 		return false;
 
-	// Leave attacks, garrisoning, repair, salvage and other object context commands to the normal translator.
+	// GeneralsX @feature Codex 03/10/2026 Alt+LMB must start on a selected ground unit, never empty ground.
 	Drawable *picked = TheTacticalView->pickDrawable(&screen, false,
-		(PickType)getPickTypesForContext(false));
-	if (picked && picked->getObject() && !picked->getObject()->isEffectivelyDead())
+		preserving ? PICK_TYPE_SELECTABLE : (PickType)getPickTypesForContext(false));
+	if (preserving)
+	{
+		if (!picked || !picked->isSelected() || !canFormUp(picked->getObject())
+			|| TheMouse->getMouseStatus()->middleState != MBS_Up
+			|| TheMouse->getMouseStatus()->rightState != MBS_Up)
+			return false;
+	}
+	// Leave attacks, garrisoning, repair, salvage and other RMB object context commands unchanged.
+	else if (picked && picked->getObject() && !picked->getObject()->isEffectivelyDead())
 		return false;
 
 	reset();
+	m_preserving = preserving;
 	m_center.zero();
 	const DrawableList *selected = TheInGameUI->getAllSelectedDrawables();
 	for (DrawableListCIt it = selected->begin(); it != selected->end(); ++it)
@@ -129,6 +143,7 @@ Bool FormationTranslator::begin(const ICoord2D &screen)
 		slot.originalDirection.x = WWMath::Cos(obj->getOrientation());
 		slot.originalDirection.y = WWMath::Sin(obj->getOrientation());
 		slot.originalDirection.z = 0.0f;
+		slot.direction = slot.originalDirection;
 		m_center.x += slot.originalPosition.x;
 		m_center.y += slot.originalPosition.y;
 		m_slots.push_back(slot);
@@ -141,18 +156,41 @@ Bool FormationTranslator::begin(const ICoord2D &screen)
 	m_center.y /= (Real)m_slots.size();
 	m_direction = m_slots.front().originalDirection;
 	m_screenAnchor = screen;
+	m_previewScreen = screen;
+	if (preserving)
+	{
+		const Bool rotating = (modifiers & KEY_STATE_CONTROL) != 0;
+		// Starting with Ctrl already held rotates in place; otherwise the preview centers on the cursor.
+		m_preservedDrag.begin(rotating ? m_center : m_anchor, screen, rotating);
+	}
 	m_selectionCount = TheInGameUI->getSelectCount();
 	m_active = true;
-	updatePreview(screen);
+	updatePreview(screen, modifiers);
 	return true;
 }
 
-void FormationTranslator::updatePreview(const ICoord2D &screen)
+void FormationTranslator::updatePreview(const ICoord2D &screen, Int modifiers)
 {
+	m_previewScreen = screen;
 	Coord3D end;
 	m_validPosition = TheTacticalView->screenToTerrain(&screen, &end);
 	if (!m_validPosition || m_slots.empty())
 		return;
+
+	if (m_preserving)
+	{
+		m_preservedDrag.update(end, screen, (modifiers & KEY_STATE_CONTROL) != 0);
+		const Real cosine = WWMath::Cos(m_preservedDrag.angle());
+		const Real sine = WWMath::Sin(m_preservedDrag.angle());
+		for (std::vector<Slot>::iterator it = m_slots.begin(); it != m_slots.end(); ++it)
+		{
+			it->position = FormationLayout::transformedSlot(m_preservedDrag.center(),
+				it->originalPosition, m_center, cosine, sine);
+			it->position.z = TheTerrainLogic->getGroundHeight(it->position.x, it->position.y);
+			it->direction = FormationLayout::rotatedDirection(it->originalDirection, cosine, sine);
+		}
+		return;
+	}
 
 	const Int dx = screen.x - m_screenAnchor.x;
 	const Int dy = screen.y - m_screenAnchor.y;
@@ -174,17 +212,18 @@ void FormationTranslator::updatePreview(const ICoord2D &screen)
 			? FormationLayout::slot(m_anchor, m_direction, distance, m_spacing, i, count)
 			: FormationLayout::translatedSlot(m_anchor, m_slots[i].originalPosition, m_center);
 		pos.z = TheTerrainLogic->getGroundHeight(pos.x, pos.y);
+		m_slots[i].direction = m_dragged ? m_direction : m_slots[i].originalDirection;
 	}
 }
 
-void FormationTranslator::finish(const ICoord2D &screen)
+void FormationTranslator::finish(const ICoord2D &screen, Int modifiers)
 {
-	if (!m_cancelled && canStart() && selectionUnchanged())
+	if (!m_cancelled && canStart(m_preserving) && selectionUnchanged())
 	{
-		updatePreview(screen);
+		updatePreview(screen, modifiers);
 		if (m_validPosition)
 		{
-			if (!m_dragged && (m_slots.size() == 1 || (Int)m_slots.size() != m_selectionCount))
+			if (!m_preserving && !m_dragged && (m_slots.size() == 1 || (Int)m_slots.size() != m_selectionCount))
 			{
 				// Keep normal single-unit movement and context handling for mixed selections (e.g. aircraft).
 				TheGameClient->evaluateContextCommand(nullptr, &m_anchor, CommandTranslator::DO_COMMAND);
@@ -193,7 +232,7 @@ void FormationTranslator::finish(const ICoord2D &screen)
 			{
 				for (std::vector<Slot>::const_iterator it = m_slots.begin(); it != m_slots.end(); ++it)
 				{
-					const Coord3D &direction = m_dragged ? m_direction : it->originalDirection;
+					const Coord3D &direction = it->direction;
 					Coord3D facingPoint = it->position;
 					facingPoint.x += direction.x * 100.0f;
 					facingPoint.y += direction.y * 100.0f;
@@ -226,12 +265,32 @@ GameMessageDisposition FormationTranslator::translateGameMessage(const GameMessa
 	const GameMessage::Type type = msg->getType();
 	if (type == GameMessage::MSG_CLEAR_GAME_DATA)
 		reset();
-	if (m_active && !m_cancelled && (!canStart() || !selectionUnchanged()))
+	if (m_active && !m_cancelled && (!canStart(m_preserving) || !selectionUnchanged()))
 		cancel();
 
 	if (type == GameMessage::MSG_RAW_MOUSE_RIGHT_BUTTON_DOWN || type == GameMessage::MSG_RAW_MOUSE_RIGHT_DOUBLE_CLICK)
 	{
-		if (begin(msg->getArgument(0)->pixel))
+		if (m_active && m_preserving)
+		{
+			cancel();
+			// Let both halves of an overriding RMB command pass through.
+			return KEEP_MESSAGE;
+		}
+		if (!m_active && begin(msg->getArgument(0)->pixel, false, msg->getArgument(1)->integer))
+			return DESTROY_MESSAGE;
+	}
+	// GeneralsX @feature Codex 03/10/2026 Capture Alt+LMB before native selection and click synthesis.
+	if (type == GameMessage::MSG_RAW_MOUSE_LEFT_BUTTON_DOWN || type == GameMessage::MSG_RAW_MOUSE_LEFT_DOUBLE_CLICK)
+	{
+		if (m_active)
+		{
+			if (m_preserving)
+				return DESTROY_MESSAGE;
+			cancel();
+			return KEEP_MESSAGE;
+		}
+		const Int modifiers = msg->getArgument(1)->integer;
+		if ((modifiers & KEY_STATE_ALT) && begin(msg->getArgument(0)->pixel, true, modifiers))
 			return DESTROY_MESSAGE;
 	}
 	if (!m_active)
@@ -240,16 +299,31 @@ GameMessageDisposition FormationTranslator::translateGameMessage(const GameMessa
 	switch (type)
 	{
 		case GameMessage::MSG_RAW_MOUSE_RIGHT_BUTTON_UP:
-			finish(msg->getArgument(0)->pixel);
+			if (m_preserving)
+				return KEEP_MESSAGE;
+			finish(msg->getArgument(0)->pixel, msg->getArgument(1)->integer);
+			return DESTROY_MESSAGE;
+		case GameMessage::MSG_RAW_MOUSE_LEFT_BUTTON_UP:
+			if (!m_preserving)
+				return KEEP_MESSAGE;
+			finish(msg->getArgument(0)->pixel, msg->getArgument(1)->integer);
 			return DESTROY_MESSAGE;
 		case GameMessage::MSG_RAW_MOUSE_POSITION:
 			if (m_cancelled)
 				return KEEP_MESSAGE;
-			updatePreview(msg->getArgument(0)->pixel);
+			updatePreview(msg->getArgument(0)->pixel, msg->getArgument(1)->integer);
 			return DESTROY_MESSAGE;
 		case GameMessage::MSG_RAW_MOUSE_RIGHT_DRAG:
+			if (m_preserving)
+				return KEEP_MESSAGE;
 			if (!m_cancelled)
-				updatePreview(msg->getArgument(0)->pixel);
+				updatePreview(msg->getArgument(0)->pixel, msg->getArgument(2)->integer);
+			return DESTROY_MESSAGE;
+		case GameMessage::MSG_RAW_MOUSE_LEFT_DRAG:
+			if (!m_preserving)
+				return KEEP_MESSAGE;
+			if (!m_cancelled)
+				updatePreview(msg->getArgument(0)->pixel, msg->getArgument(2)->integer);
 			return DESTROY_MESSAGE;
 		case GameMessage::MSG_RAW_KEY_DOWN:
 		case GameMessage::MSG_RAW_KEY_UP:
@@ -258,20 +332,23 @@ GameMessageDisposition FormationTranslator::translateGameMessage(const GameMessa
 				cancel();
 				return DESTROY_MESSAGE;
 			}
+			if (m_preserving && !m_cancelled
+				&& (msg->getArgument(0)->integer == KEY_LCTRL || msg->getArgument(0)->integer == KEY_RCTRL))
+				updatePreview(m_previewScreen, msg->getArgument(1)->integer);
+			// Never consume modifier transitions: native waypoint/force modes must receive their releases.
 			break;
-		case GameMessage::MSG_RAW_MOUSE_LEFT_BUTTON_DOWN:
-			cancel();
-			// Let both halves of a new selection click reach the selection translator.
-			return KEEP_MESSAGE;
 		case GameMessage::MSG_FRAME_TICK:
+		{
 			// FRAME_TICK precedes this frame's raw input. Allow its release through before
 			// cancelling a release swallowed by the window system (for example above the HUD).
-			if (!TheGameEngine->isActive()
-				|| (m_releasePending && TheMouse->getMouseStatus()->rightState == MBS_Up))
+			const Bool released = (m_preserving ? TheMouse->getMouseStatus()->leftState
+				: TheMouse->getMouseStatus()->rightState) == MBS_Up;
+			if (!TheGameEngine->isActive() || (m_releasePending && released))
 				reset();
 			else
-				m_releasePending = TheMouse->getMouseStatus()->rightState == MBS_Up;
+				m_releasePending = released;
 			break;
+		}
 		default:
 			break;
 	}
@@ -280,13 +357,13 @@ GameMessageDisposition FormationTranslator::translateGameMessage(const GameMessa
 
 void FormationTranslator::draw(View *view)
 {
-	if (!m_active || m_cancelled || !canStart() || !selectionUnchanged())
+	if (!m_active || m_cancelled || !canStart(m_preserving) || !selectionUnchanged())
 		return;
 	const UnsignedInt color = m_validPosition ? 0xD060FF80 : 0xD0FFB040;
 	// GeneralsX @tweak Codex 02/10/2026 Show only individual destination/facing markers, without a connecting line.
 	for (std::vector<Slot>::const_iterator it = m_slots.begin(); it != m_slots.end(); ++it)
 	{
-		const Coord3D &direction = m_dragged ? m_direction : it->originalDirection;
+		const Coord3D &direction = it->direction;
 		const Real sideX = direction.y;
 		const Real sideY = -direction.x;
 		Coord3D tip = it->position, left = it->position, right = it->position;
