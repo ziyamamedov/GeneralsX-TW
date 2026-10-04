@@ -44,10 +44,13 @@ Alt+LMB formation dragging and Command/Ctrl rotation remain available as describ
 below. Other keyboard shortcuts, including numbered control-group bindings, retain
 their existing combinations. These changes apply only to the Total War scheme.
 
-For multiple ground units, dragging creates a single row starting at mouse-down and
-extending toward the cursor. Units face perpendicular to the drag. A short drag keeps
-the minimum spacing (the largest selected unit's footprint plus a gap), so the row may
-extend beyond the cursor; longer drags spread it out. No rear ranks are created.
+For multiple ground units, dragging creates a front rank starting at mouse-down and
+extending toward the cursor. Units face perpendicular to the drag. The available width
+determines how many units fit with minimum spacing (the largest selected unit's footprint
+plus a gap). Remaining units fill additional ranks behind it, with the same minimum
+spacing between ranks. Even an incomplete rear rank starts at the initial click's edge.
+Widening the drag moves units from rear ranks into the front rank; narrowing adds rear
+ranks again. Once all units fit in one rank, a longer drag spreads them further apart.
 
 An ordinary group click translates the current arrangement so its center lands at the
 clicked point. Positions and headings are captured at mouse-down; the center is the
@@ -67,6 +70,14 @@ ground unit**. The markers follow the cursor with the captured arrangement's cen
 under it; all relative offsets and individual headings are retained, including multiple
 ranks. Starting on empty ground or an unselected unit keeps normal selection behavior.
 Only eligible mobile ground units participate; aircraft and buildings are not moved.
+
+If a unit is still executing a formation move or its final turn, Alt+LMB captures its
+ordered destination and final heading instead of its temporary travel position and
+heading. Retargeting or rotating the formation mid-move therefore preserves the planned
+ranks even while units detour around obstacles. The captured center is computed from
+those destinations. Units without an active formation order use their current position
+and heading; Stop, attacks and other replacement commands cannot revive an old layout.
+The captured shape stays fixed for the duration of the drag, even as units continue moving.
 
 While holding LMB, add **Command on macOS / Ctrl on Windows or Linux**, then drag
 horizontally to rotate the arrangement and all its headings around the fixed preview
@@ -115,8 +126,8 @@ pathfinding can adjust actual arrival positions; markers then follow those posit
   hotkey, selection and command-tooltip paths preserve Classic behavior.
 - `GeneralsMD/Code/GameEngine/Source/GameLogic/AI/FormationAI.cpp`: synchronized order
   validation, move-then-face command setup, both formation AI states and a read-only
-  marker query exposed by the Zero Hour `AIUpdateInterface`. The query stores no data
-  and changes neither simulation state nor the save/replay format.
+  marker/drag-source query exposed by the Zero Hour `AIUpdateInterface`. The queries
+  store no data and change neither simulation state nor the save/replay format.
 
 ## Upstream integration points
 
@@ -147,8 +158,10 @@ Build `z_generals`, play an original replay and a replay containing formation co
 and check the dropdown's default, Accept, Cancel, Defaults and restart persistence.
 For interaction checks, compare ordinary right-click/drag behavior in Classic with the
 single-unit facing, anchored group rows and centered group clicks in Total War, then
-switch back during a match. Check short/long drags in both directions, followed by a
-click after arrival: the row should retain its spacing and heading around the new center.
+switch back during a match. Check short/long drags in both directions and grow/shrink
+transitions between ranks, including 2+1 for three units and 2x5, 5+5, 6+4 and 10 for ten.
+Follow with a click after arrival: all ranks should retain their spacing and headings
+around the new center instead of being rebuilt. Check a single-unit drag for final facing.
 Check WASD with and without selected units, release over the HUD, chat typing, menu/app
 focus transitions, middle-button rotation/click/zoom and switching back to Classic.
 For Alt+LMB, arrange tanks, anti-air and infantry in separate ranks, select them together,
@@ -159,6 +172,12 @@ in place, a single unit, Alt release before LMB, Escape, release over the HUD, s
 changes and starting on empty ground/an unselected unit. The geometry test covers rigid
 transforms, mixed headings, a fixed rotation pivot and modifier transition behavior;
 it does not replace interactive checks of the actual mouse/key gesture.
+Retarget and rotate a formation with Alt+LMB while its units are still travelling in a
+scattered arrangement. Preview offsets and headings must match the previous ordered
+layout, including while a unit is making its final turn. Repeat the retarget before
+arrival; after Stop or an attack command, confirm the current arrangement is used instead.
+Ordinary RMB clicks still capture current positions; this retargeting rule is specific
+to Alt+LMB preserved-formation gestures.
 For the Alt overlay, issue a formation order, deselect that group and hold Alt while it
 travels and after it arrives. Select another group and place it behind those markers.
 Check replacement moves, Stop, attack orders, destroyed/contained units, Alt release,

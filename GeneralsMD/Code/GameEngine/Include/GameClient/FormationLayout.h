@@ -16,7 +16,7 @@ namespace FormationLayout
 		return result;
 	}
 
-	// GeneralsX @tweak Codex 03/10/2026 Keep one row extending from mouse-down, even when the drag is short.
+	// GeneralsX @tweak Codex 04/10/2026 Fit the front rank to the drag width and place overflow behind it.
 	inline Coord3D slot(const Coord3D &start, const Coord3D &direction,
 		Real width, Real minimumSpacing, Int index, Int count)
 	{
@@ -24,10 +24,15 @@ namespace FormationLayout
 		if (count <= 1)
 			return result;
 
-		const Real spacing = max(minimumSpacing, width / (count - 1));
-		const Real along = index * spacing;
-		result.x += direction.y * along;
-		result.y -= direction.x * along;
+		width = max(0.0f, width);
+		minimumSpacing = max(1.0f, minimumSpacing);
+		// Bound before converting to an integer; even very long drags cannot exceed the selection size.
+		const Int columns = 1 + (Int)min(width / minimumSpacing, (Real)(count - 1));
+		const Real spacing = columns > 1 ? width / (columns - 1) : 0.0f;
+		const Real along = (index % columns) * spacing;
+		const Real behind = (index / columns) * minimumSpacing;
+		result.x += direction.y * along - direction.x * behind;
+		result.y -= direction.x * along + direction.y * behind;
 		return result;
 	}
 

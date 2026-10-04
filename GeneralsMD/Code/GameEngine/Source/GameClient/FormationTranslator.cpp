@@ -173,6 +173,9 @@ Bool FormationTranslator::begin(const ICoord2D &screen, Bool preserving, Int mod
 		slot.originalDirection.x = WWMath::Cos(obj->getOrientation());
 		slot.originalDirection.y = WWMath::Sin(obj->getOrientation());
 		slot.originalDirection.z = 0.0f;
+		// GeneralsX @bugfix Codex 04/10/2026 Alt-drag preserves active formation goals through pathfinding detours.
+		if (preserving)
+			obj->getAIUpdateInterface()->getFormationDragSource(slot.originalPosition, slot.originalDirection);
 		slot.direction = slot.originalDirection;
 		m_center.x += slot.originalPosition.x;
 		m_center.y += slot.originalPosition.y;

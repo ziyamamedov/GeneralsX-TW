@@ -26,35 +26,55 @@ static void assertPosition(const Coord3D &position, float x, float y)
 	assert(near(position.x, x) && near(position.y, y));
 }
 
-// GeneralsX @tweak Codex 03/10/2026 Short and long drags always produce one row starting at mouse-down.
+// GeneralsX @tweak Codex 04/10/2026 Grow 1+1+1 into 2+1 and then 3 without moving the front-rank anchor.
 static void testThreeUnits()
 {
 	const Coord3D start = { 100.0f, 200.0f, 0.0f };
 	const Coord3D north = { 0.0f, 1.0f, 0.0f };
 	const float spacing = 40.0f;
-	for (float width : { 0.0f, 10.0f, 39.99f, 40.0f, 60.0f, 79.99f, 80.0f })
+	for (float width : { 0.0f, 10.0f, 39.99f })
 	{
 		for (int i = 0; i < 3; ++i)
-			assertPosition(FormationLayout::slot(start, north, width, spacing, i, 3), 100.0f + i * spacing, 200.0f);
+			assertPosition(FormationLayout::slot(start, north, width, spacing, i, 3), 100.0f, 200.0f - i * spacing);
 	}
-	// Above the minimum width the row stretches to the cursor, still anchored at its first unit.
-	for (int i = 0; i < 3; ++i)
-		assertPosition(FormationLayout::slot(start, north, 200.0f, spacing, i, 3), 100.0f + i * 100.0f, 200.0f);
+	for (float width : { 40.0f, 60.0f, 79.99f })
+	{
+		assertPosition(FormationLayout::slot(start, north, width, spacing, 0, 3), 100.0f, 200.0f);
+		assertPosition(FormationLayout::slot(start, north, width, spacing, 1, 3), 100.0f + width, 200.0f);
+		assertPosition(FormationLayout::slot(start, north, width, spacing, 2, 3), 100.0f, 160.0f);
+	}
+	// Once all units fit, further dragging stretches the single row to the cursor.
+	for (float width : { 80.0f, 200.0f })
+		for (int i = 0; i < 3; ++i)
+			assertPosition(FormationLayout::slot(start, north, width, spacing, i, 3), 100.0f + i * width / 2, 200.0f);
 }
 
 static void testTenUnits()
 {
 	const Coord3D start = { 100.0f, 200.0f, 0.0f };
 	const Coord3D north = { 0.0f, 1.0f, 0.0f };
-	// Growing and shrinking never creates rear ranks, including widths that used to produce 2x5 or 5x2.
-	for (float width : { 0.0f, 40.0f, 80.0f, 160.0f, 200.0f, 360.0f, 720.0f, 360.0f, 160.0f, 40.0f, 0.0f })
+	// Cover five ranks of two, two of five, 6+4, 7+3 and a single row, then shrink again.
+	const struct { float width; int frontCount; } cases[] = {
+		{ 0.0f, 1 }, { 39.99f, 1 }, { 40.0f, 2 }, { 80.0f, 3 }, { 120.0f, 4 },
+		{ 160.0f, 5 }, { 199.99f, 5 }, { 200.0f, 6 }, { 240.0f, 7 }, { 280.0f, 8 },
+		{ 320.0f, 9 }, { 359.99f, 9 }, { 360.0f, 10 }, { 720.0f, 10 },
+		{ 360.0f, 10 }, { 160.0f, 5 }, { 40.0f, 2 }, { 0.0f, 1 }
+	};
+	for (const auto &test : cases)
 	{
-		const float spacing = width > 360.0f ? 80.0f : 40.0f;
+		int frontCount = 0;
 		for (int i = 0; i < 10; ++i)
 		{
-			Coord3D pos = FormationLayout::slot(start, north, width, 40.0f, i, 10);
-			assertPosition(pos, 100.0f + i * spacing, 200.0f);
+			Coord3D pos = FormationLayout::slot(start, north, test.width, 40.0f, i, 10);
+			if (near(pos.y, 200.0f))
+				++frontCount;
+			assert(near(pos.y, 200.0f - (i / test.frontCount) * 40.0f));
+			if (i % test.frontCount == 0)
+				assert(near(pos.x, 100.0f)); // Incomplete rear ranks share the initial click's edge.
+			if (test.frontCount > 1 && i % test.frontCount == test.frontCount - 1)
+				assert(near(pos.x, 100.0f + test.width));
 		}
+		assert(frontCount == test.frontCount);
 	}
 }
 
@@ -76,7 +96,6 @@ static void testDirectionsAndSpacing()
 		{
 			for (float width : { 0.0f, 10.0f, 39.99f, 40.0f, 79.99f, 80.0f, 100.0f, 200.0f, 1240.0f })
 			{
-				float previousAlong = -1.0f;
 				for (int i = 0; i < count; ++i)
 				{
 					Coord3D pos = FormationLayout::slot(start, direction, width, 40.0f, i, count);
@@ -84,13 +103,10 @@ static void testDirectionsAndSpacing()
 					const float x = pos.x - start.x, y = pos.y - start.y;
 					const float along = x * drag.x + y * drag.y;
 					const float forward = x * direction.x + y * direction.y;
-					assert(along >= -0.001f && along > previousAlong);
-					assert(near(forward, 0.0f)); // All units stay on the same line for every drag direction.
-					previousAlong = along;
+					assert(along >= -0.001f && along <= width + 0.001f);
+					assert(forward <= 0.001f); // Overflow is behind the front rank, never in front.
 					if (i == 0)
 						assertPosition(pos, start.x, start.y);
-					if (i == count - 1)
-						assert(near(along, max(width, 40.0f * (count - 1))));
 					for (int j = 0; j < i; ++j)
 					{
 						Coord3D other = FormationLayout::slot(start, direction, width, 40.0f, j, count);
@@ -142,6 +158,16 @@ static void testCenteredClicks()
 	assertPosition(FormationLayout::translatedSlot(destination, last, center), 1040.0f, 1500.0f);
 	assertPosition(FormationLayout::slot(destination, north, 80.0f, 40.0f, 0, 3), 1000.0f, 1500.0f);
 	assertPosition(FormationLayout::slot(destination, north, 80.0f, 40.0f, 2, 3), 1080.0f, 1500.0f);
+
+	// A click after a 2-by-5 deployment keeps all five ranks, centered on the new destination.
+	const Coord3D rankStart = { 100.0f, 200.0f, 0.0f };
+	const Coord3D rankCenter = { 120.0f, 120.0f, 0.0f };
+	for (int i = 0; i < 10; ++i)
+	{
+		const Coord3D original = FormationLayout::slot(rankStart, north, 40.0f, 40.0f, i, 10);
+		const Coord3D moved = FormationLayout::translatedSlot(destination, original, rankCenter);
+		assertPosition(moved, 980.0f + (i % 2) * 40.0f, 1580.0f - (i / 2) * 40.0f);
+	}
 }
 
 // GeneralsX @feature Codex 03/10/2026 Keep three ranks and mixed headings rigid through translation/rotation.
@@ -243,5 +269,5 @@ int main()
 	testCenteredClicks();
 	testPreservedFormation();
 	testPreservedDragTransitions();
-	std::puts("Formation layout: anchored rows, centered clicks, rigid multi-rank rotation, individual headings and drag modifier transitions passed.");
+	std::puts("Formation layout: width-limited rear ranks, widening/shrinking, anchored drags, centered clicks, rigid multi-rank rotation and modifier transitions passed.");
 }

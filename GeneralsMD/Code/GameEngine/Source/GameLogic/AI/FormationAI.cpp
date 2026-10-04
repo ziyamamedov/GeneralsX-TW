@@ -80,8 +80,8 @@ void AIUpdateInterface::privateMoveToPositionAndFace(const AICommandParms *parms
 	getStateMachine()->setState(AI_FORMATION_MOVE);
 }
 
-// GeneralsX @feature Codex 04/10/2026 Derive markers from live orders, without caching or changing simulation state.
-void AIUpdateInterface::getFormationMarker(Coord3D &position, Coord3D &direction) const
+// GeneralsX @bugfix Codex 04/10/2026 Capture the ordered shape while units are travelling or turning into place.
+void AIUpdateInterface::getFormationDragSource(Coord3D &position, Coord3D &direction) const
 {
 	const Object *obj = getObject();
 	position = *obj->getPosition();
@@ -101,16 +101,26 @@ void AIUpdateInterface::getFormationMarker(Coord3D &position, Coord3D &direction
 			direction.x = dx / length;
 			direction.y = dy / length;
 		}
-		// Keep the ordered slot even during a temporary avoidance move. On arrival, draw beneath the unit.
-		if (state == AI_FORMATION_MOVE)
-			position = *destination;
+		// Both movement and final turning retain the requested slot, regardless of pathfinding detours.
+		position = *destination;
 	}
+	// Idle, Stop, attacks, ordinary moves and waypoint queues use the current position/heading,
+	// even if the state machine still contains coordinates from a completed formation order.
+}
+
+// GeneralsX @feature Codex 04/10/2026 Derive markers from live orders, without caching or changing simulation state.
+void AIUpdateInterface::getFormationMarker(Coord3D &position, Coord3D &direction) const
+{
+	getFormationDragSource(position, direction);
+	const AIStateMachine *machine = getStateMachine();
+	const StateID state = machine->getCurrentStateID();
+	// The overlay sits beneath arrived units, while Alt-drag still uses their ordered slot during turning.
+	if (state == AI_FORMATION_FACE)
+		position = *getObject()->getPosition();
 	else if (state == AI_MOVE_TO && !machine->getGoalObject())
 		position = *machine->getGoalPosition();
 	else if (state == AI_FOLLOW_PATH && machine->getGoalPathSize() > 0)
 		position = *machine->getGoalPathPosition(machine->getGoalPathSize() - 1);
-	// Idle, Stop, attacks and other replacement orders use the current position/heading,
-	// even if the state machine still contains coordinates from a completed formation order.
 }
 
 void executeFormationOrder(const GameMessage *msg)
